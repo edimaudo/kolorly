@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Market Morning",
+    "note": "A bright market palette built around spice, produce, and woven colour.",
+    "swatches": [
+      { "name": "Saffron", "hex": "#F4C430", "note": "A golden yellow named for the spice and its vivid threads." },
+      { "name": "Marigold", "hex": "#EAA221", "note": "A rich orange-gold named for the flowering plant." },
+      { "name": "Jade", "hex": "#00A86B", "note": "A green gemstone colour valued across several East Asian cultures." }
+    ]
+  },
+  {
+    "name": "Blue Hour",
+    "note": "A quiet evening palette of mineral blues and softened greens.",
+    "swatches": [
+      { "name": "Persian Blue", "hex": "#1C39BB", "note": "A saturated blue associated with traditional Persian decorative arts and tilework." },
+      { "name": "Aegean Blue", "hex": "#4F6D8A", "note": "A cool blue inspired by the sea and coastal architecture of the Aegean region." },
+      { "name": "Sea Glass", "hex": "#8FB9A8", "note": "A gentle blue-green inspired by weathered glass found along shorelines." }
+    ]
+  },
+  {
+    "name": "Earth & Ember",
+    "note": "A grounded palette drawn from fired clay, natural pigments, and stone.",
+    "swatches": [
+      { "name": "Terracotta", "hex": "#C66B4E", "note": "A warm clay red associated with fired earthenware." },
+      { "name": "Ochre", "hex": "#CC7722", "note": "An earthy yellow-orange made from naturally occurring iron oxide pigments." },
+      { "name": "Garnet", "hex": "#733635", "note": "A dark red inspired by the garnet gemstone." }
+    ]
+  }
+]

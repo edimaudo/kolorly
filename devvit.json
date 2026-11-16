@@ -1,0 +1,66 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "kolorly",
+  "version": "0.1.0",
+  "description": "A daily five-round colour-mixing puzzle.",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "splash.html",
+        "height": "regular"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "redis": true,
+    "reddit": {
+      "enable": true,
+      "scope": "user"
+    },
+    "journeys": true
+  },
+  "settings": {
+    "global": {
+      "puzzleSalt": {
+        "type": "string",
+        "label": "Puzzle generation salt",
+        "helpText": "Developer-managed global secret used to seed daily puzzles. Set with npx devvit settings set puzzleSalt.",
+        "isSecret": true
+      }
+    }
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-palette-drop": {
+        "endpoint": "/internal/scheduler/daily-drop",
+        "cron": "0 0 * * *"
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Create today's Kolorly post",
+        "description": "Create today's interactive palette post if it does not already exist.",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/create-daily-post"
+      }
+    ]
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  }
+}

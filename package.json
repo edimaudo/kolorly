@@ -1,0 +1,31 @@
+{
+  "name": "kolorly",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A daily five-round perceptual colour-mixing game for Reddit, built with Devvit Web.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/shared/*.test.ts src/server/services/*.test.ts",
+    "dev": "devvit playtest",
+    "watch": "vite build --watch",
+    "deploy": "npm run type-check && npm test && npm run build && devvit upload",
+    "launch": "npm run deploy && devvit publish"
+  },
+  "dependencies": {
+    "@devvit/analytics": "latest",
+    "@devvit/web": "latest",
+    "hono": "latest"
+  },
+  "devDependencies": {
+    "@devvit/start": "latest",
+    "@types/node": "latest",
+    "devvit": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}
