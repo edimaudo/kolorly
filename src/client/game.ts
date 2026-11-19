@@ -1,4 +1,4 @@
-import { api, type GameResponse, type InitResponse, type RoundResult, type SubmitRoundResponse } from "./api";
+import { api, isDemoMode, mountDemoBanner, type GameResponse, type InitResponse, type RoundResult, type SubmitRoundResponse } from "./api";
 import { hslToHex } from "../shared/colors";
 import { endJourney, markAppReady, recordInteraction, recordProgress } from "./telemetry";
 
@@ -313,9 +313,9 @@ function renderResult(state: GameResponse): void {
   currentGame = state;
   const percentage = Number((state.totalScore / 50).toFixed(1));
   const title = state.isArchive ? "Practice complete" : "Today's palette, decoded.";
-  const percentile = state.isArchive ? "Archive practice" : state.percentile === null ? "Percentile pending" : `Top ${state.percentile}%`;
-  const playerText = state.isArchive ? "" : state.playerCount > 0 ? `of ${state.playerCount.toLocaleString("en-CA")} players` : "of today's players";
-  const streakText = state.isArchive ? "Practice run" : `${state.streak}-day streak`;
+  const percentile = isDemoMode ? "Preview session" : state.isArchive ? "Archive practice" : state.percentile === null ? "Percentile pending" : `Top ${state.percentile}%`;
+  const playerText = isDemoMode ? "in this browser" : state.isArchive ? "" : state.playerCount > 0 ? `of ${state.playerCount.toLocaleString("en-CA")} players` : "of today's players";
+  const streakText = isDemoMode ? "Demo run" : state.isArchive ? "Practice run" : `${state.streak}-day streak`;
   const tiles = state.rounds.map((round) => `
     <button class="review-tile" type="button" data-round="${round.round}" aria-pressed="${round.round === selectedResultRound}">
       <span class="review-swatches" aria-label="Target, your mix, and subreddit average colours">
@@ -325,7 +325,7 @@ function renderResult(state: GameResponse): void {
     </button>
   `).join("");
   const detailRound = state.rounds.find((round) => round.round === selectedResultRound) ?? state.rounds[0];
-  const flairButtons = !state.isArchive ? state.earnedFlairs.map((flair) => {
+  const flairButtons = !state.isArchive && !isDemoMode ? state.earnedFlairs.map((flair) => {
     const equipped = state.equippedFlairs.includes(flair);
     return `<button class="outline-button ${equipped ? "equipped" : ""}" type="button" data-flair="${escapeHtml(flair)}" ${equipped ? "disabled" : ""}>${equipped ? `✓ ${escapeHtml(flair)} equipped` : `Equip “${escapeHtml(flair)}”`}</button>`;
   }).join("") : "";
@@ -344,11 +344,11 @@ function renderResult(state: GameResponse): void {
       <div class="review-strip">${tiles}</div>
       <section class="detail-drawer" id="detail-drawer">${detailRound ? resultDetail(state, detailRound) : "No swatches to inspect."}</section>
       <section class="community-actions">
-        <button class="primary-button share-button" id="share-button" type="button" ${state.hasCommented ? "disabled" : ""}>${state.hasCommented ? "Posted ✓" : "Post result to comments"}</button>
+        <button class="primary-button share-button" id="share-button" type="button" ${state.hasCommented || isDemoMode ? "disabled" : ""}>${state.hasCommented ? "Posted ✓" : isDemoMode ? "Comment sharing available on Reddit" : "Post result to comments"}</button>
         <div class="action-row"><button class="outline-button" id="copy-result" type="button">Copy result text</button></div>
         ${flairButtons ? `<div class="action-row">${flairButtons}</div>` : ""}
       </section>
-      <aside class="reminder-note"><strong>Tomorrow's palette · 00:00 UTC</strong>Daily push reminders are not enabled for this app yet. The next palette appears in the subreddit feed.</aside>
+      <aside class="reminder-note"><strong>${isDemoMode ? "Browser preview" : "Tomorrow's palette · 00:00 UTC"}</strong>${isDemoMode ? "This result is saved only in this browser. Reddit community comparisons and daily reminders are available in the Devvit version." : "Daily push reminders are not enabled for this app yet. The next palette appears in the subreddit feed."}</aside>
     </section>
   `;
 
@@ -410,6 +410,8 @@ function renderResult(state: GameResponse): void {
 }
 
 async function boot(): Promise<void> {
+  if (isDemoMode) document.body.classList.add("browser-preview-mode");
+  mountDemoBanner();
   try {
     currentInit = await api.init();
     const state = await api.startRound();

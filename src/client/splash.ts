@@ -1,5 +1,5 @@
 import { requestExpandedMode } from "@devvit/web/client";
-import { api, type InitResponse } from "./api";
+import { api, isDemoMode, mountDemoBanner, type InitResponse } from "./api";
 import { markAppReady, startJourney } from "./telemetry";
 
 const root = document.querySelector<HTMLElement>("#app");
@@ -15,6 +15,7 @@ function escapeHtml(value: string): string {
 }
 
 function render(data: InitResponse): void {
+  if (isDemoMode) document.body.classList.add("browser-preview-mode");
   const issue = `#${String(data.issueNumber).padStart(3, "0")}`;
   const date = safeDate(data.date);
   const statusLine = data.status === "COMPLETED"
@@ -61,6 +62,7 @@ function render(data: InitResponse): void {
 }
 
 async function boot(): Promise<void> {
+  mountDemoBanner();
   try {
     const data = await api.init();
     render(data);

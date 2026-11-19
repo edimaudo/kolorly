@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "vite build",
+    "build:vercel": "vite build --config vite.config.vercel.ts",
     "type-check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test src/shared/*.test.ts src/server/services/*.test.ts",
     "dev": "devvit playtest",

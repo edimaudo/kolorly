@@ -112,3 +112,14 @@ kolorly/
 ## Verification status for this generated source
 
 The pure game-logic test suite passes in Node 22.16 with **6/6 tests**. TypeScript syntax checks also pass. A full `tsc` and Vite/Devvit build were not run in this environment because dependency installation did not complete; install dependencies locally and run the commands above before playtesting. This project has not yet been uploaded to Reddit or tested inside Reddit's iOS, Android or desktop clients.
+
+## Vercel browser preview
+
+This project includes a separate Vercel build for reviewing the game in a normal browser before installing it on Reddit. It is a browser-only demo, not the production backend:
+
+- `vercel.json` uses `npm run build:vercel` and publishes `dist-vercel/`.
+- `vite.config.vercel.ts` builds the two HTML entry points without the Devvit server plugin.
+- The Vercel build uses a local demo API backed by browser `localStorage` and sample daily targets.
+- Reddit navigation and Journeys are replaced with preview-only shims; comment sharing and flair are disabled.
+
+The normal `npm run build`, `npm run deploy`, and `npm run dev` commands continue to target Devvit. See [DEPLOYMENT.md](./DEPLOYMENT.md) for the browser-based Vercel and Reddit deployment steps.

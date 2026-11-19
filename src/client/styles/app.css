@@ -218,3 +218,48 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Browser-only preview banner. Not included in the Devvit build. */
+.browser-preview-banner {
+  position: fixed;
+  z-index: 1000;
+  top: max(8px, env(safe-area-inset-top));
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(24, 24, 27, 0.94);
+  color: #f4f4f5;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+  font: 600 10px/1.2 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.015em;
+}
+
+.browser-preview-banner button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #f2c94c;
+  color: #18181b;
+  font: inherit;
+  cursor: pointer;
+}
+
+body.browser-preview-mode {
+  padding-top: 38px;
+}
+
+body.browser-preview-mode .game-shell {
+  min-height: calc(100dvh - 38px);
+}
+
+@media (max-width: 420px) {
+  .browser-preview-banner {
+    right: 7px;
+    gap: 7px;
+    font-size: 9px;
+  }
+}

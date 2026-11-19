@@ -23,7 +23,10 @@
     "redis": true,
     "reddit": {
       "enable": true,
-      "scope": "user"
+      "scope": "user",
+      "asUser": [
+        "SUBMIT_COMMENT"
+      ]
     },
     "journeys": true
   },
