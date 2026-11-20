@@ -18,7 +18,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
 }
 
-export function hslToHex(h: number, s: number, l: number): string {
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const hue = ((h % 360) + 360) % 360;
   const sat = clamp(s / 100);
   const light = clamp(l / 100);
@@ -34,7 +34,12 @@ export function hslToHex(h: number, s: number, l: number): string {
   else if (hue < 300) rgb = [x, 0, chroma];
   else rgb = [chroma, 0, x];
 
-  return rgbToHex(rgb[0] + m, rgb[1] + m, rgb[2] + m);
+  return [rgb[0] + m, rgb[1] + m, rgb[2] + m];
+}
+
+export function hslToHex(h: number, s: number, l: number): string {
+  const [r, g, b] = hslToRgb(h, s, l);
+  return rgbToHex(r, g, b);
 }
 
 export function hexToRgb(hex: string): [number, number, number] {

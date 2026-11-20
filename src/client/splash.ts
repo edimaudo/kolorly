@@ -49,7 +49,7 @@ function render(data: InitResponse): void {
       </header>
       <div class="inline-specimen" style="--hero-l:${data.heroLightness}%">
         <div class="specimen-rings" aria-hidden="true"></div>
-        <div class="specimen-label"><h1>Match the colour.<br />Beat the clock.</h1><span class="specimen-subline">Five rounds. Twelve seconds each.</span></div>
+        <div class="specimen-label"><h1>Match the colour.<br />Beat the clock.</h1></div>
         <div class="specimen-chip" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
       <div class="inline-footer">

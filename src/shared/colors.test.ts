@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { colourAccuracy, deltaE2000, hexToLab, hslToHex, labToHex } from "./colors.ts";
+import { colourAccuracy, deltaE2000, hexToLab, hslToHex, hslToRgb, labToHex } from "./colors.ts";
 
 test("HSL primary values convert to expected sRGB hex", () => {
   assert.equal(hslToHex(0, 100, 50), "#FF0000");
   assert.equal(hslToHex(120, 100, 50), "#00FF00");
   assert.equal(hslToHex(240, 100, 50), "#0000FF");
+  assert.deepEqual(hslToRgb(0, 100, 50), [1, 0, 0]);
+  assert.deepEqual(hslToRgb(120, 100, 50), [0, 1, 0]);
+  assert.deepEqual(hslToRgb(240, 100, 50), [0, 0, 1]);
 });
 
 test("CIEDE2000 is zero for identical colours", () => {

@@ -47,7 +47,7 @@ export async function recordProgress(progress: number, action = "swatch_locked")
   }
 }
 
-export async function recordInteraction(action: "cvd_toggle" | "result_swatch_opened" | "share_result" | "flair_equipped"): Promise<void> {
+export async function recordInteraction(action: "cvd_toggle" | "result_swatch_opened" | "share_result" | "flair_equipped" | "mixer_mode_palette" | "mixer_mode_sliders"): Promise<void> {
   try {
     const result = await telemetry.interaction({ action });
     reportReceipt("Journey.Interaction", result);

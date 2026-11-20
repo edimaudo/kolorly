@@ -93,11 +93,9 @@ button:disabled { cursor: not-allowed; opacity: .68; }
 }
 .specimen-rings { position: absolute; width: 230px; height: 230px; right: 30px; top: 50%; transform: translateY(-50%); border-radius: 50%; border: 1px solid rgb(255 255 255 / .24); box-shadow: 0 0 0 20px rgb(255 255 255 / .045), 0 0 0 42px rgb(255 255 255 / .035), 0 0 56px hsl(43 50% 70% / .13); animation: breathe 6s ease-in-out infinite; pointer-events: none; }
 .specimen-rings::after { content: ""; position: absolute; inset: 28px; border-radius: 50%; border: 1px solid rgb(255 255 255 / .2); }
-.specimen-label { position: relative; z-index: 1; display: grid; gap: 10px; max-width: 68%; }
+.specimen-label { position: relative; z-index: 1; display: grid; gap: 0; max-width: 68%; }
 .specimen-label h1 { margin: 0; color: #fff; font-size: clamp(26px, 4vw, 36px); line-height: 1.06; letter-spacing: -.05em; font-weight: 750; }
 @media (prefers-color-scheme: light) { .specimen-label h1 { color: #202830; } }
-.specimen-subline { font-size: 14px; font-weight: 550; color: #e1e6e9; }
-@media (prefers-color-scheme: light) { .specimen-subline { color: #46535d; } }
 .specimen-chip { position: absolute; z-index: 1; right: clamp(26px, 8%, 72px); top: 50%; width: 92px; height: 126px; transform: translateY(-50%) rotate(6deg); padding: 7px; border-radius: 12px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 0; border: 1px solid rgb(255 255 255 / .55); background: rgb(255 255 255 / .2); backdrop-filter: blur(10px); box-shadow: 0 16px 34px rgb(0 0 0 / .2); }
 .specimen-chip span { display: block; background: linear-gradient(130deg, #e6bd74, #92714b); }
 .specimen-chip span:nth-child(2) { background: linear-gradient(130deg, #91b9b6, #477a7a); }
@@ -172,6 +170,29 @@ button:disabled { cursor: not-allowed; opacity: .68; }
 .slider-control input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; border: 3px solid var(--surface); border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
 .slider-control input[type="range"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; border-radius: 9px; }
 .slider-control input[type="range"]:disabled { cursor: not-allowed; opacity: .65; }
+
+.studio-tools { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.mixer-mode-switch { display: inline-flex; flex: 0 0 auto; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--frame); }
+.mixer-mode-button { min-height: 36px; padding: 6px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink-soft); font-size: 12px; font-weight: 700; line-height: 1.15; }
+.mixer-mode-button[aria-pressed="true"] { border-color: var(--line); background: var(--surface-raised); color: var(--ink); }
+.mixer-mode-button:disabled { cursor: not-allowed; opacity: .65; }
+.palette-mixer { min-width: 0; display: grid; justify-items: center; gap: 8px; }
+.palette-square { position: relative; width: min(100%, 228px); aspect-ratio: 1; overflow: hidden; border: 2px solid var(--line); border-radius: 12px; background: #808080; touch-action: none; cursor: crosshair; }
+.palette-spectrum { display: block; width: 100%; height: 100%; }
+.palette-square:focus-visible { outline: 4px solid var(--focus); outline-offset: 4px; }
+.palette-marker { position: absolute; width: 22px; height: 22px; border: 3px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 2px #111, 0 1px 5px rgb(0 0 0 / .45); pointer-events: none; }
+.palette-help { max-width: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; text-align: center; }
+.palette-hue-control { width: 100%; max-width: 420px; grid-template-columns: 54px minmax(0, 1fr) 42px; }
+.palette-value-readout { width: 100%; color: var(--ink-soft); font-size: 13px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.palette-value-readout[hidden] { display: none; }
+.palette-accessible-controls { width: 100%; display: grid; gap: 4px; }
+.palette-accessible-range { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.palette-accessible-range:focus { position: static !important; width: 100% !important; height: 48px !important; margin: 0 !important; overflow: visible !important; clip: auto !important; white-space: normal !important; border: 0 !important; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.palette-accessible-range:focus::-webkit-slider-runnable-track { height: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--track, var(--line)); }
+.palette-accessible-range:focus::-moz-range-track { height: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--track, var(--line)); }
+.palette-accessible-range:focus::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; margin-top: -10px; border: 3px solid var(--surface); border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.palette-accessible-range:focus::-moz-range-thumb { width: 28px; height: 28px; border: 3px solid var(--surface); border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.palette-mixer:has(.palette-accessible-range:focus) .palette-accessible-controls::before { content: "Accessible palette controls"; color: var(--ink-soft); font-size: 13px; font-weight: 700; }
 .action-footer { min-width: 0; padding-top: 1px; }
 .lock-button, .next-button { min-height: 54px; }
 
@@ -245,7 +266,6 @@ button:disabled { cursor: not-allowed; opacity: .68; }
   .inline-specimen { padding: 18px 16px; }
   .specimen-label { max-width: 72%; gap: 8px; }
   .specimen-label h1 { font-size: clamp(23px, 6.5vw, 30px); }
-  .specimen-subline { max-width: 190px; font-size: 13px; }
   .specimen-chip { right: 18px; width: 68px; height: 104px; }
   .inline-footer { padding-inline: 12px; }
   .game-shell { min-height: 100dvh; padding: max(8px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); grid-template-rows: 48px auto minmax(250px, 44dvh) auto 55px; gap: 8px; }
@@ -259,7 +279,12 @@ button:disabled { cursor: not-allowed; opacity: .68; }
   .round-heading h1 { font-size: clamp(20px, 5.6vw, 25px); }
   .arena { height: clamp(250px, 44dvh, 380px); min-height: 250px; max-height: 380px; }
   .swatch-pane { padding: 14px 16px; }
-  .studio { padding: 11px 13px 12px; gap: 6px; }
+  .studio { padding: 11px 13px 12px; gap: 8px; }
+  .studio-top { align-items: flex-start; flex-wrap: wrap; }
+  .studio-tools { width: 100%; justify-content: space-between; }
+  .mixer-mode-button { min-height: 40px; padding-inline: 9px; }
+  .palette-square { width: min(100%, 220px); }
+  .palette-hue-control { grid-template-columns: 50px minmax(0, 1fr) 42px; }
   .slider-control { grid-template-columns: 76px minmax(0, 1fr) 46px; gap: 8px; }
   .slider-control label { font-size: 14px; }
   .reveal-summary { min-height: 148px; padding: 13px 14px; }
@@ -293,6 +318,10 @@ button:disabled { cursor: not-allowed; opacity: .68; }
   .round-heading h1 { font-size: clamp(19px, 6vw, 23px); }
   .round-count { font-size: 12px; }
   .slider-control { grid-template-columns: 66px minmax(0, 1fr) 42px; gap: 7px; }
+  .studio-tools { gap: 6px; }
+  .mixer-mode-button { font-size: 11px; padding-inline: 7px; }
+  .palette-square { width: min(100%, 190px); }
+  .palette-help { font-size: 11px; }
   .slider-control label { font-size: 13px; }
   .slider-control output { min-width: 40px; font-size: 12px; }
   .match-badge { padding: 7px 10px; gap: 3px 8px; }
@@ -315,6 +344,10 @@ button:disabled { cursor: not-allowed; opacity: .68; }
   .studio-top { min-height: 22px; }
   .hint-pill { padding: 2px 7px; font-size: 11px; }
   .slider-list { gap: 0; }
+  .palette-square { width: min(100%, 176px); }
+  .palette-mixer { gap: 5px; }
+  .palette-hue-control { min-height: 46px; }
+  .palette-help { font-size: 11px; }
   .reveal-summary { min-height: 0; padding: 8px 10px; gap: 6px; }
   .reveal-summary-main { gap: 4px; }
   .reveal-meta { font-size: 13px; line-height: 1.35; }

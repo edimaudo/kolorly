@@ -1,5 +1,5 @@
 import { api, isStandaloneMode, type GameResponse, type InitResponse, type RoundResult } from "./api";
-import { hslToHex } from "../shared/colors";
+import { hslToHex, hslToRgb } from "../shared/colors";
 import { endJourney, markAppReady, recordInteraction, recordProgress } from "./telemetry";
 
 const root = document.querySelector<HTMLElement>("#app");
@@ -8,6 +8,19 @@ if (!root) throw new Error("Kolorly could not find its app container.");
 
 const ROUND_MS = 12_000;
 const HINT_KEY = "kolorly-hint-dismissed";
+const MIXER_MODE_KEY = "kolorly-mixer-mode-v1";
+type MixerMode = "sliders" | "palette";
+
+function loadMixerMode(): MixerMode {
+  try {
+    return localStorage.getItem(MIXER_MODE_KEY) === "palette" ? "palette" : "sliders";
+  } catch {
+    return "sliders";
+  }
+}
+
+let mixerMode: MixerMode = loadMixerMode();
+let activePalettePointer: number | null = null;
 const sliderState = { h: 180, s: 50, l: 50 };
 let currentGame: GameResponse | null = null;
 let currentInit: InitResponse | null = null;
@@ -53,18 +66,54 @@ function hslGuess(): string {
   return hslToHex(sliderState.h, sliderState.s, sliderState.l);
 }
 
+function drawPaletteSpectrum(canvas: HTMLCanvasElement, hue: number): void {
+  if (canvas.dataset.hue === String(hue)) return;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) return;
+  const width = canvas.width;
+  const height = canvas.height;
+  const image = context.createImageData(width, height);
+  for (let y = 0; y < height; y += 1) {
+    const lightness = 100 - (y / (height - 1)) * 100;
+    for (let x = 0; x < width; x += 1) {
+      const saturation = (x / (width - 1)) * 100;
+      const [red, green, blue] = hslToRgb(hue, saturation, lightness).map((channel) => Math.round(channel * 255));
+      const offset = (y * width + x) * 4;
+      image.data[offset] = red;
+      image.data[offset + 1] = green;
+      image.data[offset + 2] = blue;
+      image.data[offset + 3] = 255;
+    }
+  }
+  context.putImageData(image, 0, 0);
+  canvas.dataset.hue = String(hue);
+}
+
 function gradientStyles(): void {
   const hue = sliderState.h;
   const saturation = sliderState.s;
   const lightness = sliderState.l;
-  const hueSlider = root!.querySelector<HTMLInputElement>("#hue-slider");
-  const saturationSlider = root!.querySelector<HTMLInputElement>("#saturation-slider");
-  const lightnessSlider = root!.querySelector<HTMLInputElement>("#lightness-slider");
+  const hueSliders = root!.querySelectorAll<HTMLInputElement>("#hue-slider, #palette-hue-slider");
+  const saturationSlider = root!.querySelector<HTMLInputElement>("#saturation-slider, #palette-saturation-slider");
+  const lightnessSlider = root!.querySelector<HTMLInputElement>("#lightness-slider, #palette-lightness-slider");
   const mixPane = root!.querySelector<HTMLElement>("#your-swatch");
-  if (hueSlider) hueSlider.style.setProperty("--track", "linear-gradient(90deg,#f00 0%,#ff0 16.6%,#0f0 33.3%,#0ff 50%,#00f 66.6%,#f0f 83.3%,#f00 100%)");
+  const palette = root!.querySelector<HTMLElement>("#sl-palette");
+  for (const hueSlider of hueSliders) {
+    hueSlider.style.setProperty("--track", "linear-gradient(90deg,#f00 0%,#ff0 16.6%,#0f0 33.3%,#0ff 50%,#00f 66.6%,#f0f 83.3%,#f00 100%)");
+  }
   if (saturationSlider) saturationSlider.style.setProperty("--track", `linear-gradient(90deg,hsl(${hue} 0% ${lightness}%),hsl(${hue} 100% ${lightness}%))`);
   if (lightnessSlider) lightnessSlider.style.setProperty("--track", `linear-gradient(90deg,#000000,hsl(${hue} ${saturation}% 50%),#ffffff)`);
   if (mixPane) mixPane.style.setProperty("--swatch", hslGuess());
+  if (palette) {
+    const canvas = palette.querySelector<HTMLCanvasElement>(".palette-spectrum");
+    if (canvas) drawPaletteSpectrum(canvas, hue);
+    const marker = palette.querySelector<HTMLElement>(".palette-marker");
+    if (marker) {
+      marker.style.left = `${saturation}%`;
+      marker.style.top = `${100 - lightness}%`;
+    }
+    palette.setAttribute("aria-label", `Saturation and lightness palette. Saturation ${Math.round(saturation)} percent. Lightness ${Math.round(lightness)} percent. Use arrow keys to adjust.`);
+  }
   currentGuess = hslGuess();
 }
 
@@ -76,15 +125,20 @@ function updateSliderReadouts(): void {
   if (h) h.textContent = cvdMode ? values.hue : "";
   if (s) s.textContent = cvdMode ? values.saturation : "";
   if (l) l.textContent = cvdMode ? values.lightness : "";
-  for (const [id, value] of [["hue-slider", values.hue], ["saturation-slider", values.saturation], ["lightness-slider", values.lightness]] as const) {
+  for (const [id, value] of [["hue-slider", values.hue], ["palette-hue-slider", values.hue], ["saturation-slider", values.saturation], ["palette-saturation-slider", values.saturation], ["lightness-slider", values.lightness], ["palette-lightness-slider", values.lightness]] as const) {
     root!.querySelector<HTMLInputElement>(`#${id}`)?.setAttribute("aria-valuetext", value);
+  }
+  const paletteReadout = root!.querySelector<HTMLElement>("#palette-value-readout");
+  if (paletteReadout) {
+    paletteReadout.hidden = !cvdMode;
+    paletteReadout.textContent = `Hue ${values.hue} · Saturation ${values.saturation} · Lightness ${values.lightness}`;
   }
 }
 
 function setSliderValues(): void {
-  const hue = root!.querySelector<HTMLInputElement>("#hue-slider");
-  const saturation = root!.querySelector<HTMLInputElement>("#saturation-slider");
-  const lightness = root!.querySelector<HTMLInputElement>("#lightness-slider");
+  const hue = root!.querySelector<HTMLInputElement>("#hue-slider, #palette-hue-slider");
+  const saturation = root!.querySelector<HTMLInputElement>("#saturation-slider, #palette-saturation-slider");
+  const lightness = root!.querySelector<HTMLInputElement>("#lightness-slider, #palette-lightness-slider");
   if (hue) hue.value = String(sliderState.h);
   if (saturation) saturation.value = String(sliderState.s);
   if (lightness) lightness.value = String(sliderState.l);
@@ -92,6 +146,140 @@ function setSliderValues(): void {
   updateSliderReadouts();
 }
 
+function mixerControlsMarkup(): string {
+  if (mixerMode === "sliders") {
+    return `
+      <div class="slider-list" id="mixer-controls">
+        <div class="slider-control"><label for="hue-slider">Hue</label><input id="hue-slider" type="range" min="0" max="360" step="1" value="180" aria-describedby="slider-instructions" /><output id="hue-value" for="hue-slider"></output></div>
+        <div class="slider-control"><label for="saturation-slider">Saturation</label><input id="saturation-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="saturation-value" for="saturation-slider"></output></div>
+        <div class="slider-control"><label for="lightness-slider">Lightness</label><input id="lightness-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="lightness-value" for="lightness-slider"></output></div>
+      </div>`;
+  }
+
+  return `
+    <div class="palette-mixer" id="mixer-controls">
+      <div class="palette-square" id="sl-palette" role="group" tabindex="0" aria-label="Saturation and lightness palette. Saturation 50 percent. Lightness 50 percent. Use arrow keys to adjust." aria-describedby="palette-help">
+        <canvas class="palette-spectrum" width="201" height="201" aria-hidden="true"></canvas>
+        <span class="palette-marker" aria-hidden="true"></span>
+      </div>
+      <p class="palette-help" id="palette-help">Choose saturation from left to right and lightness from bottom to top. Use the arrow keys when the square is focused.</p>
+      <div class="slider-control palette-hue-control"><label for="palette-hue-slider">Hue</label><input id="palette-hue-slider" type="range" min="0" max="360" step="1" value="180" aria-label="Hue" aria-describedby="slider-instructions" /><output id="hue-value" for="palette-hue-slider"></output></div>
+      <output class="palette-value-readout" id="palette-value-readout" hidden></output>
+      <div class="palette-accessible-controls" aria-label="Additional keyboard and screen reader controls">
+        <label class="sr-only" for="palette-saturation-slider">Saturation</label>
+        <input class="palette-accessible-range" id="palette-saturation-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="palette-help" />
+        <label class="sr-only" for="palette-lightness-slider">Lightness</label>
+        <input class="palette-accessible-range" id="palette-lightness-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="palette-help" />
+      </div>
+    </div>`;
+}
+
+function applyPalettePoint(clientX: number, clientY: number): void {
+  const palette = root!.querySelector<HTMLElement>("#sl-palette");
+  if (!palette) return;
+  const rect = palette.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  sliderState.s = Math.round(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 100);
+  sliderState.l = Math.round((1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))) * 100);
+  setSliderValues();
+}
+
+function bindMixerControls(): void {
+  if (mixerMode === "sliders") {
+    const bindings = [
+      { selector: "#hue-slider", key: "h" as const },
+      { selector: "#saturation-slider", key: "s" as const },
+      { selector: "#lightness-slider", key: "l" as const },
+    ];
+    for (const binding of bindings) {
+      const slider = root!.querySelector<HTMLInputElement>(binding.selector);
+      if (!slider) continue;
+      slider.addEventListener("pointerdown", hideHint, { once: true });
+      slider.addEventListener("keydown", hideHint, { once: true });
+      slider.addEventListener("input", () => {
+        if (isSubmitting) return;
+        sliderState[binding.key] = Number(slider.value);
+        gradientStyles();
+        updateSliderReadouts();
+      });
+    }
+    return;
+  }
+
+  const hue = root!.querySelector<HTMLInputElement>("#palette-hue-slider");
+  const saturation = root!.querySelector<HTMLInputElement>("#palette-saturation-slider");
+  const lightness = root!.querySelector<HTMLInputElement>("#palette-lightness-slider");
+  const palette = root!.querySelector<HTMLElement>("#sl-palette");
+  for (const [input, key] of [[hue, "h"], [saturation, "s"], [lightness, "l"]] as const) {
+    if (!input) continue;
+    input.addEventListener("pointerdown", hideHint, { once: true });
+    input.addEventListener("keydown", hideHint, { once: true });
+    input.addEventListener("input", () => {
+      if (isSubmitting) return;
+      sliderState[key] = Number(input.value);
+      setSliderValues();
+    });
+  }
+  if (!palette) return;
+  palette.addEventListener("pointerdown", (event: PointerEvent) => {
+    if (isSubmitting) return;
+    hideHint();
+    activePalettePointer = event.pointerId;
+    palette.setPointerCapture(event.pointerId);
+    applyPalettePoint(event.clientX, event.clientY);
+  });
+  palette.addEventListener("pointermove", (event: PointerEvent) => {
+    if (activePalettePointer !== event.pointerId || isSubmitting) return;
+    applyPalettePoint(event.clientX, event.clientY);
+  });
+  const releasePointer = (event: PointerEvent) => {
+    if (activePalettePointer === event.pointerId) activePalettePointer = null;
+  };
+  palette.addEventListener("pointerup", releasePointer);
+  palette.addEventListener("pointercancel", releasePointer);
+  palette.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (isSubmitting) return;
+    const step = event.shiftKey ? 10 : 1;
+    let handled = true;
+    switch (event.key) {
+      case "ArrowLeft": sliderState.s = Math.max(0, sliderState.s - step); break;
+      case "ArrowRight": sliderState.s = Math.min(100, sliderState.s + step); break;
+      case "ArrowDown": sliderState.l = Math.max(0, sliderState.l - step); break;
+      case "ArrowUp": sliderState.l = Math.min(100, sliderState.l + step); break;
+      case "Home": sliderState.s = 0; break;
+      case "End": sliderState.s = 100; break;
+      default: handled = false;
+    }
+    if (handled) {
+      event.preventDefault();
+      hideHint();
+      setSliderValues();
+    }
+  });
+}
+
+function bindMixerModeButtons(): void {
+  root!.querySelectorAll<HTMLButtonElement>("[data-mixer-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (isSubmitting) return;
+      const nextMode = button.dataset.mixerMode;
+      if (nextMode !== "palette" && nextMode !== "sliders") return;
+      mixerMode = nextMode;
+      try { localStorage.setItem(MIXER_MODE_KEY, mixerMode); } catch { /* preference remains for this session */ }
+      root!.querySelectorAll<HTMLButtonElement>("[data-mixer-mode]").forEach((option) => {
+        option.setAttribute("aria-pressed", String(option.dataset.mixerMode === mixerMode));
+      });
+      const hint = root!.querySelector<HTMLElement>("#hint-pill");
+      if (hint) hint.textContent = mixerMode === "palette" ? "Choose within the square" : "Drag sliders to match";
+      const controls = root!.querySelector<HTMLElement>("#mixer-controls");
+      if (controls) controls.outerHTML = mixerControlsMarkup();
+      setSliderValues();
+      bindMixerControls();
+      button.focus();
+      void recordInteraction(`mixer_mode_${mixerMode}`);
+    });
+  });
+}
 function hideHint(): void {
   if (!hintVisible) return;
   hintVisible = false;
@@ -165,13 +353,18 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
       <div class="swatch-pane yours" style="--swatch:${currentGuess}" id="your-swatch"><span class="swatch-label">YOUR MIX</span></div>
     </section>
     <section class="studio" aria-labelledby="studio-heading">
-      <div class="studio-top"><h2 class="studio-title" id="studio-heading" tabindex="-1">Studio mixer</h2>${hintVisible ? '<span class="hint-pill" id="hint-pill">Drag sliders to match</span>' : ""}</div>
-      <p class="sr-only" id="slider-instructions">Adjust each slider with the arrow keys or by dragging. Hue ranges from 0 to 360 degrees. Saturation and lightness range from 0 to 100 percent.</p>
-      <div class="slider-list">
-        <div class="slider-control"><label for="hue-slider">Hue</label><input id="hue-slider" type="range" min="0" max="360" step="1" value="180" aria-describedby="slider-instructions" /><output id="hue-value" for="hue-slider"></output></div>
-        <div class="slider-control"><label for="saturation-slider">Saturation</label><input id="saturation-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="saturation-value" for="saturation-slider"></output></div>
-        <div class="slider-control"><label for="lightness-slider">Lightness</label><input id="lightness-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="lightness-value" for="lightness-slider"></output></div>
+      <div class="studio-top">
+        <h2 class="studio-title" id="studio-heading" tabindex="-1">Studio mixer</h2>
+        <div class="studio-tools">
+          <div class="mixer-mode-switch" role="group" aria-label="Choose colour controls">
+            <button class="mixer-mode-button" type="button" data-mixer-mode="palette" aria-pressed="${mixerMode === "palette"}">Square palette</button>
+            <button class="mixer-mode-button" type="button" data-mixer-mode="sliders" aria-pressed="${mixerMode === "sliders"}">Sliders</button>
+          </div>
+          ${hintVisible ? `<span class="hint-pill" id="hint-pill">${mixerMode === "palette" ? "Choose within the square" : "Drag sliders to match"}</span>` : ""}
+        </div>
       </div>
+      <p class="sr-only" id="slider-instructions">Adjust hue, saturation and lightness with the arrow keys or by dragging. Hue ranges from 0 to 360 degrees. Saturation and lightness range from 0 to 100 percent.</p>
+      ${mixerControlsMarkup()}
     </section>
     <footer class="action-footer"><button class="primary-button lock-button" id="lock-button" type="button">Lock in colour <span aria-hidden="true">→</span></button></footer>
   `;
@@ -179,21 +372,8 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
 
   root!.querySelector<HTMLElement>("#round-heading")?.focus();
   setSliderValues();
-  const sliderIds = ["#hue-slider", "#saturation-slider", "#lightness-slider"];
-  for (const selector of sliderIds) {
-    const slider = root!.querySelector<HTMLInputElement>(selector)!;
-    slider.addEventListener("pointerdown", hideHint, { once: true });
-    slider.addEventListener("keydown", hideHint, { once: true });
-    slider.addEventListener("input", () => {
-      if (isSubmitting) return;
-      const value = Number(slider.value);
-      if (selector === "#hue-slider") sliderState.h = value;
-      if (selector === "#saturation-slider") sliderState.s = value;
-      if (selector === "#lightness-slider") sliderState.l = value;
-      gradientStyles();
-      updateSliderReadouts();
-    });
-  }
+  bindMixerModeButtons();
+  bindMixerControls();
   root!.querySelector<HTMLButtonElement>("#cvd-toggle")?.addEventListener("click", () => {
     cvdMode = !cvdMode;
     const button = root!.querySelector<HTMLButtonElement>("#cvd-toggle");
@@ -245,6 +425,8 @@ async function submitGuess(timeout: boolean): Promise<void> {
   const submittedRound = currentGame.currentRound;
   stopTimer();
   root!.querySelectorAll<HTMLInputElement>("input[type=range]").forEach((input) => { input.disabled = true; });
+  root!.querySelectorAll<HTMLButtonElement>("[data-mixer-mode]").forEach((button) => { button.disabled = true; });
+  root!.querySelector<HTMLElement>("#sl-palette")?.setAttribute("aria-disabled", "true");
   const lockButton = root!.querySelector<HTMLButtonElement>("#lock-button");
   if (lockButton) {
     lockButton.disabled = true;
