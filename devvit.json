@@ -12,6 +12,9 @@
       },
       "game": {
         "entry": "game.html"
+      },
+      "home": {
+        "entry": "home.html"
       }
     }
   },

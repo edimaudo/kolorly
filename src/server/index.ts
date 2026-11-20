@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { createTelemetryRouter } from "@devvit/analytics/server/reddit";
 import { context, redis, reddit, settings } from "@devvit/web/server";
 import { averageLab, colourAccuracy, hexToLab, labToHex } from "../shared/colors";
+import { formatShareText } from "../shared/shareText";
 import type {
   ApiError,
   CrowdAggregate,
@@ -468,14 +469,7 @@ async function postDailyPuzzle(): Promise<{ created: boolean; postId?: string; i
 }
 
 function makeShareText(session: SessionState): string {
-  const percentage = Number((session.totalScore / 50).toFixed(1));
-  const marks = session.rounds.map((round) => {
-    if (round.timedOut) return "⬜ 0%";
-    const marker = round.accuracyPct >= 90 ? "🟩" : round.accuracyPct >= 75 ? "🟨" : "🟥";
-    return `${marker} ${Math.round(round.accuracyPct)}%`;
-  });
-  const streakLine = session.isArchive ? "Practice run" : `Streak: ${session.streak} 🔥`;
-  return `Kolorly #${String(session.issueNumber).padStart(3, "0")} — ${session.totalScore.toLocaleString("en-CA")}/5,000 (${percentage}%)\n${marks.join(" | ")}\n${streakLine}`;
+  return formatShareText(session);
 }
 
 app.get("/api/init", async (c) => {

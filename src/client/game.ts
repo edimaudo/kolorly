@@ -1,5 +1,7 @@
+import { requestExpandedMode } from "@devvit/web/client";
 import { api, isStandaloneMode, type GameResponse, type InitResponse, type RoundResult } from "./api";
 import { hslToHex, hslToRgb } from "../shared/colors";
+import { formatShareText } from "../shared/shareText";
 import { endJourney, markAppReady, recordInteraction, recordProgress } from "./telemetry";
 
 const root = document.querySelector<HTMLElement>("#app");
@@ -44,6 +46,23 @@ function setSkipLink(targetId: string, label: string): void {
   link.textContent = label;
 }
 
+function paletteHomeButtonMarkup(): string {
+  return `<button class="home-nav-button" type="button" aria-label="Back to palette screen" title="Back to palette"><span aria-hidden="true">←</span><span>Home</span></button>`;
+}
+
+function bindPaletteHomeButton(): void {
+  root!.querySelector<HTMLButtonElement>(".home-nav-button")?.addEventListener("click", (event) => {
+    try {
+      // Devvit 0.15 supports switching entry points while already expanded.
+      // The Vercel adapter maps this same action back to the browser landing page.
+      requestExpandedMode(event, "home", { title: "Kolorly" });
+    } catch (error) {
+      console.error("[kolorly] Could not return to the palette screen", error);
+      showToast("Could not open the palette screen. Please try again.");
+    }
+  });
+}
+
 function showToast(message: string): void {
   if (!toast) return;
   toast.textContent = message;
@@ -58,8 +77,10 @@ function stopTimer(): void {
 }
 
 function dateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(parsed);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return date;
+  const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Intl.DateTimeFormat("en-CA", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
 }
 
 function hslGuess(): string {
@@ -300,14 +321,9 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
 
   if (isStandaloneMode) document.body.classList.add("standalone-site");
   if (state.status === "COMPLETED") {
-    // Keep the fifth-round reveal visible after refresh; the player chooses when to open results.
-    const finalRound = state.rounds[state.rounds.length - 1];
-    if (finalRound?.round === 5) {
-      const { ok: _ok, round: _round, ...session } = state;
-      renderReveal(finalRound, session);
-    } else {
-      renderResult(state);
-    }
+    // Reopening a completed challenge always opens the result card. The final reveal
+    // is shown immediately after submission and remains there until the player continues.
+    renderResult(state);
     return;
   }
   if (state.status === "IN_PROGRESS" && state.roundStartedAt === null && state.rounds.length > 0) {
@@ -342,6 +358,7 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
         <span class="sr-only" id="timer-announcement" role="status" aria-live="polite" aria-atomic="true">12 seconds remaining</span>
       </div>
       <button class="cvd-button" id="cvd-toggle" type="button" aria-pressed="false" aria-label="Enable numeric HSL readouts for colour-vision support" title="Show numeric HSL readouts">CVD</button>
+      ${paletteHomeButtonMarkup()}
     </header>
     <header class="round-heading">
       <div><p class="round-kicker">${state.isArchive ? "ARCHIVE PRACTICE" : `DAILY SWATCH · ${escapeHtml(dateLabel(state.date))}`}</p><h1 id="round-heading" tabindex="-1">${escapeHtml(round.label)}</h1></div>
@@ -369,6 +386,7 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
     <footer class="action-footer"><button class="primary-button lock-button" id="lock-button" type="button">Lock in colour <span aria-hidden="true">→</span></button></footer>
   `;
   setSkipLink("studio-heading", "Skip to colour controls");
+  bindPaletteHomeButton();
 
   root!.querySelector<HTMLElement>("#round-heading")?.focus();
   setSliderValues();
@@ -459,6 +477,7 @@ function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "r
       <div class="round-track" role="progressbar" aria-label="Round progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="${result.round}" aria-valuetext="Round ${result.round} of 5">${dots}</div>
       <div class="timer-wrap timer-complete" aria-label="Round complete"><span class="timer-count">Done</span><div class="timer-track" aria-hidden="true"><div class="timer-fill" style="transform:scaleX(0)"></div></div></div>
       <span class="round-count">${result.round} / 5</span>
+      ${paletteHomeButtonMarkup()}
     </header>
     <header class="round-heading">
       <div><p class="round-kicker">SWATCH ${result.round} REVEALED</p><h1 id="reveal-heading" tabindex="-1">Your match</h1></div>
@@ -478,7 +497,7 @@ function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "r
     </section>
     <section class="reveal-summary" aria-label="Round result details">
       <div class="reveal-summary-main">
-        <p class="reveal-meta"><strong>Colour difference (ΔE 00):</strong> ${result.deltaE.toFixed(2)}${result.timedOut ? " · Time expired" : ""}</p>
+        <p class="reveal-meta"><strong>Perceptual difference (ΔE₀₀):</strong> ${result.deltaE.toFixed(2)}${result.timedOut ? " · Time expired" : ""}</p>
         ${crowdDetail ? `<p class="reveal-meta">${escapeHtml(crowdDetail)}</p>` : ""}
         ${result.triviaTitle ? `<p class="reveal-meta"><strong>${escapeHtml(result.triviaTitle)}</strong>${result.triviaNote ? ` · ${escapeHtml(result.triviaNote)}` : ""}</p>` : ""}
       </div>
@@ -487,6 +506,7 @@ function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "r
     <footer class="action-footer"><button class="primary-button next-button" id="next-swatch" type="button">${session.status === "COMPLETED" ? "See your results" : "Next swatch"}<span aria-hidden="true">→</span></button></footer>
   `;
   setSkipLink("next-swatch", "Skip to continue");
+  bindPaletteHomeButton();
   const advance = () => {
     if (session.status === "COMPLETED") {
       const completeState: GameResponse = { ok: true, ...session, round: null };
@@ -515,14 +535,7 @@ async function beginRound(): Promise<void> {
 }
 
 function shareText(state: GameResponse): string {
-  const percent = Number((state.totalScore / 50).toFixed(1));
-  const marks = state.rounds.map((round) => {
-    if (round.timedOut) return "⬜ 0%";
-    const marker = round.accuracyPct >= 90 ? "🟩" : round.accuracyPct >= 75 ? "🟨" : "🟥";
-    return `${marker} ${Math.round(round.accuracyPct)}%`;
-  });
-  const suffix = isStandaloneMode ? "Practice run" : state.isArchive ? "Practice run" : `Streak: ${state.streak} 🔥`;
-  return `Kolorly #${String(state.issueNumber).padStart(3, "0")} — ${state.totalScore.toLocaleString("en-CA")}/5,000 (${percent}%)\n${marks.join(" | ")}\n${suffix}`;
+  return formatShareText(state);
 }
 
 async function copyText(value: string): Promise<boolean> {
@@ -542,13 +555,17 @@ async function copyText(value: string): Promise<boolean> {
   }
 }
 
-function resultDetail(state: GameResponse, round: RoundResult): string {
+function resultDetail(_state: GameResponse, round: RoundResult): string {
+  const crowdValue = round.crowdCount > 0
+    ? `<div class="detail-value"><span>Community average</span><strong><i class="detail-colour-chip" style="--chip:${round.crowdAvgHex}" aria-hidden="true"></i>${round.crowdAvgHex}</strong></div>`
+    : "";
   return `
     <div class="detail-heading"><strong>Swatch ${round.round}${round.triviaTitle ? ` · ${escapeHtml(round.triviaTitle)}` : ""}</strong><span>${round.accuracyPct.toFixed(1)}% match</span></div>
     <div class="detail-values">
-      <div class="detail-value"><span>Target</span><strong>${round.targetHex}</strong></div>
-      <div class="detail-value"><span>Your mix</span><strong>${round.guessHex}</strong></div>
-      <div class="detail-value"><span>ΔE 00</span><strong>${round.deltaE.toFixed(2)}</strong></div>
+      <div class="detail-value"><span>Target</span><strong><i class="detail-colour-chip" style="--chip:${round.targetHex}" aria-hidden="true"></i>${round.targetHex}</strong></div>
+      <div class="detail-value"><span>Your mix</span><strong><i class="detail-colour-chip" style="--chip:${round.guessHex}" aria-hidden="true"></i>${round.guessHex}</strong></div>
+      <div class="detail-value"><span>ΔE₀₀</span><strong>${round.deltaE.toFixed(2)}</strong></div>
+      ${crowdValue}
     </div>
     ${round.triviaNote ? `<p class="trivia-note">${escapeHtml(round.triviaNote)}</p>` : ""}
   `;
@@ -559,15 +576,15 @@ function renderResult(state: GameResponse): void {
   root!.classList.add("results-mode");
   root!.classList.remove("single-state");
   currentGame = state;
+  selectedResultRound = state.rounds.length ? state.rounds[state.rounds.length - 1].round : 1;
   const percentage = Number((state.totalScore / 50).toFixed(1));
   const title = state.isArchive ? "Practice complete" : "Today's palette, decoded.";
   const percentile = state.isArchive ? "Archive practice" : state.percentile === null ? "Percentile pending" : `Top ${state.percentile}%`;
   const playerText = state.isArchive ? "" : state.playerCount > 0 ? `of ${state.playerCount.toLocaleString("en-CA")} players` : "of today's players";
-  const streakText = state.isArchive ? "Practice run" : `${state.streak}-day streak`;
   const statItems = [`<span><strong>${percentage}%</strong> accuracy</span>`];
-  if (!isStandaloneMode) {
+  if (!isStandaloneMode && !state.isArchive) {
     statItems.push(`<span><strong>${escapeHtml(percentile)}</strong> ${escapeHtml(playerText)}</span>`);
-    statItems.push(`<span><strong>${escapeHtml(streakText)}</strong>${state.isArchive ? "" : " ✦"}</span>`);
+    statItems.push(`<span><strong>${state.streak}-day streak</strong> ✦</span>`);
   }
   const tiles = state.rounds.map((round) => {
     const crowdLabel = round.crowdCount > 0 ? `, community average ${round.crowdAvgHex}` : "";
@@ -587,15 +604,18 @@ function renderResult(state: GameResponse): void {
     const equipped = state.equippedFlairs.includes(flair);
     return `<button class="outline-button ${equipped ? "equipped" : ""}" type="button" data-flair="${escapeHtml(flair)}" ${equipped ? "disabled" : ""}>${equipped ? `✓ ${escapeHtml(flair)} equipped` : `Equip “${escapeHtml(flair)}”`}</button>`;
   }).join("") : "";
-  const actions = isStandaloneMode
-    ? `<button class="primary-button share-button" id="copy-result" type="button">Copy result</button>`
-    : `<button class="primary-button share-button" id="share-button" type="button" ${state.hasCommented ? "disabled" : ""}>${state.hasCommented ? "Posted ✓" : "Post result to comments"}</button>
-       <div class="action-row"><button class="outline-button" id="copy-result" type="button">Copy result</button></div>
-       ${flairButtons ? `<div class="action-row">${flairButtons}</div>` : ""}`;
+  const actions = `
+    <div class="share-heading"><h2>Share your result</h2><p>Copied results include the exact target, your mix, community colour (when available), and points for each swatch.</p></div>
+    <div class="share-action-buttons">
+      ${isStandaloneMode ? "" : `<button class="primary-button share-button" id="share-button" type="button" ${state.hasCommented ? "disabled" : ""}>${state.hasCommented ? "Posted to comments ✓" : "Post result to comments"}</button>`}
+      <button class="${isStandaloneMode ? "primary-button" : "outline-button"} copy-breakdown-button" id="copy-result" type="button">Copy colour breakdown</button>
+    </div>
+    ${flairButtons ? `<div class="flair-actions" aria-label="Unlocked flair">${flairButtons}</div>` : ""}
+  `;
 
   root!.innerHTML = `
     <section class="result-shell">
-      <header class="result-topline"><div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div><span class="issue-badge">#${String(state.issueNumber).padStart(3, "0")} · ${escapeHtml(dateLabel(state.date))}</span></header>
+      <header class="result-topline"><div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div><div class="result-top-actions"><span class="issue-badge">#${String(state.issueNumber).padStart(3, "0")} · ${escapeHtml(dateLabel(state.date))}</span>${paletteHomeButtonMarkup()}</div></header>
       <section class="result-hero" aria-labelledby="result-title">
         <h1 id="result-title" tabindex="-1">${title}</h1>
         <div class="score-line"><strong class="score-total">${state.totalScore.toLocaleString("en-CA")}</strong><span class="score-denom">/ 5,000 points</span></div>
@@ -605,10 +625,24 @@ function renderResult(state: GameResponse): void {
       <div class="result-section-title"><h2>Your five swatches</h2><span>Select a swatch to inspect it</span></div>
       <div class="review-strip">${tiles}</div>
       <section class="detail-drawer" id="detail-drawer" aria-live="polite">${detailRound ? resultDetail(state, detailRound) : "No swatches to inspect."}</section>
+      <details class="scoring-explainer">
+        <summary>How scoring works</summary>
+        <div class="scoring-explainer-body">
+          <p><strong>ΔE₀₀ (CIEDE2000)</strong> estimates the perceptual difference between the target colour and your mix. It compares lightness, chroma (colour intensity) and hue, with adjustments for how people perceive those differences. A lower value is closer; 0 means the colours are identical.</p>
+          <ol>
+            <li>Kolorly converts the target and your mix from sRGB into CIELAB colour values.</li>
+            <li>It calculates their CIEDE2000 colour difference, shown as ΔE₀₀.</li>
+            <li>It converts that difference into a game accuracy score: <code>clamp(100 − (ΔE₀₀ × 2.2), 0, 100)</code>.</li>
+            <li>Round points are <code>round(accuracy × 10)</code>, up to 1,000 points per swatch.</li>
+          </ol>
+          <p class="scoring-note">The 2.2 multiplier is Kolorly's game-scoring scale; it is not part of the CIEDE2000 standard. The five swatches can earn up to 5,000 points.</p>
+        </div>
+      </details>
       <section class="community-actions" aria-label="Result actions">${actions}</section>
     </section>
   `;
   setSkipLink("result-title", "Skip to results");
+  bindPaletteHomeButton();
 
   root!.querySelector<HTMLElement>("#result-title")?.focus();
   root!.querySelectorAll<HTMLButtonElement>(".review-tile").forEach((button) => {
@@ -644,7 +678,7 @@ function renderResult(state: GameResponse): void {
 
   root!.querySelector<HTMLButtonElement>("#copy-result")?.addEventListener("click", async () => {
     const copied = await copyText(shareText(state));
-    showToast(copied ? "Result copied." : "Your browser blocked clipboard access.");
+    showToast(copied ? "Colour breakdown copied." : "Your browser blocked clipboard access.");
   });
   root!.querySelectorAll<HTMLButtonElement>("[data-flair]").forEach((button) => {
     button.addEventListener("click", async () => {

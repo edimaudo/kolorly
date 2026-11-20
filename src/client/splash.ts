@@ -6,8 +6,10 @@ const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("Kolorly could not find its app container.");
 
 function safeDate(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }).format(parsed);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return date;
+  const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Intl.DateTimeFormat("en-CA", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
 }
 
 function escapeHtml(value: string): string {
@@ -30,22 +32,20 @@ function render(data: InitResponse): void {
     : data.status === "IN_PROGRESS"
       ? data.isArchive ? "Resume practice" : "Resume challenge"
       : data.isArchive ? "Practice this palette" : "Play today's palette";
-  const footerNote = isStandaloneMode
-    ? "A new palette every day"
-    : `${data.playedToday.toLocaleString("en-CA")} played today`;
+  const footerNote = isStandaloneMode ? "" : `${data.playedToday.toLocaleString("en-CA")} played today`;
   const communityNote = isStandaloneMode
     ? ""
     : !data.isArchive && data.streak > 0
       ? `<span class="streak-pill">${data.streak}-day streak</span>`
       : data.isArchive
         ? "Practice only · no streak impact"
-        : "One new palette every day";
+        : "";
 
   root!.innerHTML = `
     <section class="inline-card" aria-label="Kolorly daily colour challenge">
       <header class="inline-header">
         <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div>
-        <div class="inline-meta"><span class="issue-badge">${issue}</span><time datetime="${escapeHtml(data.date)}">${escapeHtml(date)} UTC</time></div>
+        <div class="inline-meta"><span class="issue-badge">${issue}</span><time datetime="${escapeHtml(data.date)}">${escapeHtml(date)}</time></div>
       </header>
       <div class="inline-specimen" style="--hero-l:${data.heroLightness}%">
         <div class="specimen-rings" aria-hidden="true"></div>
@@ -55,7 +55,7 @@ function render(data: InitResponse): void {
       <div class="inline-footer">
         <p class="inline-status">${escapeHtml(statusLine)}</p>
         <button class="primary-button" id="play-button" type="button">${buttonLabel}<span aria-hidden="true">→</span></button>
-        <div class="inline-footnote"><span>${escapeHtml(footerNote)}</span>${communityNote}</div>
+        ${footerNote || communityNote ? `<div class="inline-footnote">${footerNote ? `<span>${escapeHtml(footerNote)}</span>` : ""}${communityNote}</div>` : ""}
       </div>
     </section>
   `;
