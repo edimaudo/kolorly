@@ -1,11 +1,11 @@
-# kolorly: Vercel browser preview and Reddit Devvit deployment
+# kolorly: Vercel testing and Reddit Devvit deployment
 
 This project has two build targets:
 
-- **Vercel preview:** a browser-only version for testing the screens and five-round game flow at a normal website URL. It uses sample daily colours and saves the current test session in the browser's `localStorage`.
+- **Vercel test build:** a standalone version for testing the screens and five-round game flow at a normal website URL. It uses sample daily colours and stores each test session in that browser's `localStorage`.
 - **Reddit Devvit:** the production app. It uses the Devvit server, Reddit APIs, Redis, scheduled posts, and Reddit identity.
 
-Vercel is a preview environment only. It does not host the production Reddit game backend. The Devvit build remains separate and uses the normal `vite.config.ts` configuration.
+Vercel is a testing environment only. It does not host the production Reddit game backend. The Devvit build remains separate and uses the normal `vite.config.ts` configuration.
 
 ## 1. Put the project in GitHub
 
@@ -49,13 +49,13 @@ Commit the extracted project to the repository so Vercel can import it. From the
 
 ```bash
 git add .
-git commit -m "Add kolorly app and Vercel preview"
+git commit -m "Add kolorly app and Vercel test build"
 git push
 ```
 
 The project folder is `kolorly/` inside the GitHub repository. Select that folder as the Vercel **Root Directory** in the next section.
 
-## 3. Deploy the browser preview to Vercel
+## 3. Deploy the standalone test build to Vercel
 
 ### 3.1 Import the GitHub repository
 
@@ -69,7 +69,7 @@ The project folder is `kolorly/` inside the GitHub repository. Select that folde
    - Install command: `npm install`
 6. Deploy.
 
-No environment variables are required for the browser preview.
+No environment variables are required for the standalone test build.
 
 ### 3.2 Use the preview
 
@@ -78,24 +78,23 @@ Open the Vercel URL after the deployment succeeds.
 - `/` displays the kolorly feed card.
 - Select the play button to open `/game`, which displays the five-round mixer.
 - Complete the five rounds to inspect the reveal and results screens.
-- Use **Reset demo** in the preview banner to clear the browser test session and start again.
 
-The Vercel preview is deliberately labelled **Browser preview · local demo data**. Its limitations are intentional:
+The standalone test build intentionally keeps its interface focused on the game. It does not display test-environment banners or a reset control. Its technical limitations are:
 
 - It uses sample daily targets, not the secret-seeded Reddit daily puzzle.
 - Session progress is stored in that browser's `localStorage`; it is not shared with other users or browsers.
 - It does not connect to Reddit, Devvit Redis, a subreddit leaderboard, the daily scheduler, Reddit comments, Reddit flair, or Devvit Journeys.
-- Reddit comment sharing and flair actions are unavailable in the browser preview. The copy-result action remains available.
+- The results screen offers a copy action instead of Reddit comment sharing.
 
-This lets you evaluate the layout, responsive behaviour, sliders, timer, scoring display, reveal and results flow at a web URL. It is not a production backend or a substitute for a Reddit playtest.
+Use this build to evaluate the layout, responsive behaviour, sliders, timer, scoring display, reveal and results flow at a web URL. It is not a production backend or a substitute for a Reddit playtest.
 
-### 3.3 Update the Vercel preview
+### 3.3 Update the Vercel test build
 
 After changing the code in Codespaces, commit and push the changes:
 
 ```bash
 git add .
-git commit -m "Update kolorly preview"
+git commit -m "Update kolorly test build"
 git push
 ```
 
@@ -119,10 +118,10 @@ The Devvit build is different from the Vercel build:
 
 | Command | Build target | Result |
 |---|---|---|
-| `npm run build:vercel` | Vercel | Static browser preview in `dist-vercel/` with a local demo API |
+| `npm run build:vercel` | Vercel | Static standalone test build in `dist-vercel/` with a browser session adapter |
 | `npm run build` | Reddit Devvit | Client and server bundles in `dist/` for Reddit |
 
-The Vercel preview shims are selected only by `vite.config.vercel.ts`. The normal Devvit build continues to use the real Devvit client navigation, telemetry package, server endpoints, Reddit API and Redis.
+The Vercel standalone shims are selected only by `vite.config.vercel.ts`. The normal Devvit build continues to use the real Devvit client navigation, telemetry package, server endpoints, Reddit API and Redis.
 
 ## 5. Connect the Reddit developer account
 
@@ -226,7 +225,7 @@ The account running the command must have moderator permissions in that subreddi
 ## 8. Updating the app after launch
 
 1. Make changes in the same GitHub repository.
-2. Push the changes so Vercel can create a new browser preview deployment.
+2. Push the changes so Vercel can create a new test-build deployment.
 3. Run the Devvit checks and `npm run deploy` in Codespaces.
 4. Run `npx devvit playtest` again to verify the new build in the test subreddit.
 5. Submit the updated version with `npx devvit publish --public` when it is ready for review.
@@ -237,7 +236,7 @@ The account running the command must have moderator permissions in that subreddi
 | Command | Purpose |
 |---|---|
 | `npm install` | Install the project dependencies |
-| `npm run build:vercel` | Build the browser-only Vercel preview |
+| `npm run build:vercel` | Build the standalone Vercel test version |
 | `npm run type-check` | Check TypeScript |
 | `npm test` | Run the game-logic tests |
 | `npm run build` | Build the Devvit client and server |

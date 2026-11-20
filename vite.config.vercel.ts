@@ -6,14 +6,14 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(projectRoot, "src/client");
 
 /**
- * Standalone browser preview configuration.
- * This deliberately does not load @devvit/start/vite because Vercel is only
- * serving the browser preview; Devvit remains the production runtime.
+ * Standalone Vercel build configuration.
+ * This deliberately does not load @devvit/start/vite; Devvit remains the
+ * production Reddit runtime.
  */
 export default defineConfig({
   root: clientRoot,
   define: {
-    "import.meta.env.VITE_DEMO_MODE": JSON.stringify("true"),
+    "import.meta.env.VITE_STANDALONE_MODE": JSON.stringify("true"),
   },
   resolve: {
     alias: {

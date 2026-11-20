@@ -1,9 +1,9 @@
 import type { ApiError, GameResponse, InitResponse, RoundResult, SessionStatus, SubmitRoundResponse } from "../shared/types";
-import { demoApi, resetDemoSession } from "./demo-api";
+import { standaloneApi } from "./standalone-api";
 
 export interface RoundStartResponse extends GameResponse {}
 
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
+export const isStandaloneMode = import.meta.env.VITE_STANDALONE_MODE === "true";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -37,21 +37,10 @@ const devvitApi = {
 };
 
 /**
- * Vercel uses a browser-only demo API stored in localStorage.
- * A normal Devvit build continues to use the real Reddit/Redis endpoints.
+ * The standalone Vercel build uses a browser session adapter.
+ * The Devvit build uses the real Reddit/Redis endpoints.
  */
-export const api = isDemoMode ? demoApi : devvitApi;
+export const api = isStandaloneMode ? standaloneApi : devvitApi;
 
-export function mountDemoBanner(): void {
-  if (!isDemoMode || document.querySelector(".browser-preview-banner")) return;
-  const banner = document.createElement("div");
-  banner.className = "browser-preview-banner";
-  banner.innerHTML = '<span>Browser preview · local demo data</span><button type="button">Reset demo</button>';
-  banner.querySelector("button")?.addEventListener("click", () => {
-    resetDemoSession();
-    window.location.assign("/");
-  });
-  document.body.append(banner);
-}
 
 export type { InitResponse, GameResponse, RoundResult, SessionStatus, SubmitRoundResponse };

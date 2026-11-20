@@ -1,5 +1,5 @@
 import { requestExpandedMode } from "@devvit/web/client";
-import { api, isDemoMode, mountDemoBanner, type InitResponse } from "./api";
+import { api, isStandaloneMode, type InitResponse } from "./api";
 import { markAppReady, startJourney } from "./telemetry";
 
 const root = document.querySelector<HTMLElement>("#app");
@@ -15,35 +15,47 @@ function escapeHtml(value: string): string {
 }
 
 function render(data: InitResponse): void {
-  if (isDemoMode) document.body.classList.add("browser-preview-mode");
+  if (isStandaloneMode) document.body.classList.add("standalone-site");
   const issue = `#${String(data.issueNumber).padStart(3, "0")}`;
   const date = safeDate(data.date);
   const statusLine = data.status === "COMPLETED"
-    ? `${data.isArchive ? "Practice complete" : "Completed"} · ${data.totalScore.toLocaleString("en-CA")} pts · ${data.isArchive ? "Archive practice" : data.percentile ? `Top ${data.percentile}%` : "Result saved"}`
+    ? `${data.isArchive ? "Practice complete" : "Completed"} · ${data.totalScore.toLocaleString("en-CA")} pts${!isStandaloneMode && !data.isArchive && data.percentile ? ` · Top ${data.percentile}%` : ""}`
     : data.status === "IN_PROGRESS"
       ? `${data.isArchive ? "Resume practice" : "Resume round"} ${Math.min(data.currentRound, 5)} of 5`
-      : `${data.isArchive ? "Archive palette" : "5 daily swatches"} · ${data.averageAccuracyPct === null ? "Be the first to set the pace" : `Subreddit average ${data.averageAccuracyPct}%`}`;
+      : isStandaloneMode
+        ? "A new colour challenge is ready"
+        : `${data.isArchive ? "Archive palette" : "5 daily swatches"} · ${data.averageAccuracyPct === null ? "Be the first to set the pace" : `Subreddit average ${data.averageAccuracyPct}%`}`;
   const buttonLabel = data.status === "COMPLETED"
     ? data.isArchive ? "View practice result" : "View result card"
     : data.status === "IN_PROGRESS"
       ? data.isArchive ? "Resume practice" : "Resume challenge"
       : data.isArchive ? "Practice this palette" : "Play today's palette";
-  const crowdCount = data.playedToday.toLocaleString("en-CA");
+  const footerNote = isStandaloneMode
+    ? "A new palette every day"
+    : `${data.playedToday.toLocaleString("en-CA")} played today`;
+  const communityNote = isStandaloneMode
+    ? ""
+    : !data.isArchive && data.streak > 0
+      ? `<span class="streak-pill">${data.streak}-day streak</span>`
+      : data.isArchive
+        ? "Practice only · no streak impact"
+        : "One new palette every day";
+
   root!.innerHTML = `
-    <section class="inline-card">
+    <section class="inline-card" aria-label="Kolorly daily colour challenge">
       <header class="inline-header">
         <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div>
-        <div class="inline-meta"><span class="issue-badge">${issue}</span><time>${escapeHtml(date)} UTC</time></div>
+        <div class="inline-meta"><span class="issue-badge">${issue}</span><time datetime="${escapeHtml(data.date)}">${escapeHtml(date)} UTC</time></div>
       </header>
       <div class="inline-specimen" style="--hero-l:${data.heroLightness}%">
         <div class="specimen-rings" aria-hidden="true"></div>
-        <div class="specimen-label"><span class="micro-label">THE DAILY PALETTE</span><strong>Colour has<br />a point of view.</strong><span class="specimen-subline">Five swatches. Twelve seconds each.</span></div>
+        <div class="specimen-label"><h1>Match the colour.<br />Beat the clock.</h1><span class="specimen-subline">Five rounds. Twelve seconds each.</span></div>
         <div class="specimen-chip" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
       <div class="inline-footer">
         <p class="inline-status">${escapeHtml(statusLine)}</p>
-        <button class="primary-button" id="play-button" type="button">${buttonLabel}<span aria-hidden="true">↗</span></button>
-        <div class="inline-footnote"><span>${crowdCount} played ${data.isArchive ? "this palette" : "today"}</span>${!data.isArchive && data.streak > 0 ? `<span class="streak-pill">✦ ${data.streak}-day streak</span>` : data.isArchive ? "<span>Practice only · no streak impact</span>" : "<span>One new palette every day</span>"}</div>
+        <button class="primary-button" id="play-button" type="button">${buttonLabel}<span aria-hidden="true">→</span></button>
+        <div class="inline-footnote"><span>${escapeHtml(footerNote)}</span>${communityNote}</div>
       </div>
     </section>
   `;
@@ -55,6 +67,7 @@ function render(data: InitResponse): void {
       console.error("[kolorly] Could not open expanded mode", error);
       const note = document.createElement("p");
       note.className = "inline-error";
+      note.setAttribute("role", "alert");
       note.textContent = "Kolorly could not open. Please try again.";
       root!.querySelector(".inline-footer")?.append(note);
     }
@@ -62,7 +75,6 @@ function render(data: InitResponse): void {
 }
 
 async function boot(): Promise<void> {
-  mountDemoBanner();
   try {
     const data = await api.init();
     render(data);

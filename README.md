@@ -18,7 +18,7 @@ A five-round daily colour-mixing game for Reddit, built as a **Devvit Web** app.
 - Devvit Web, Vite, TypeScript, Hono
 - `@devvit/web` server context, Reddit API and Redis
 - `@devvit/analytics` Journeys
-- Plain HTML, CSS and TypeScript in the client; no React dependency and no external font or image requests
+- Plain HTML, CSS and TypeScript in the client; no React dependency. Inter is loaded from Google Fonts with platform system-font fallbacks.
 
 ## Local setup
 
@@ -111,15 +111,20 @@ kolorly/
 
 ## Verification status for this generated source
 
-The pure game-logic test suite passes in Node 22.16 with **6/6 tests**. TypeScript syntax checks also pass. A full `tsc` and Vite/Devvit build were not run in this environment because dependency installation did not complete; install dependencies locally and run the commands above before playtesting. This project has not yet been uploaded to Reddit or tested inside Reddit's iOS, Android or desktop clients.
+The pure game-logic test suite passes with **6/6 tests**. The client TypeScript files pass a strict targeted type check using Devvit type stubs, TypeScript syntax checks pass, and the CSS and JSON configuration files parse successfully. A complete project type check and Vite/Devvit production build were not run because dependency installation did not complete in this environment. The project has not yet been uploaded to Reddit or tested inside Reddit's iOS, Android or desktop clients.
 
-## Vercel browser preview
+## Vercel standalone test build
 
-This project includes a separate Vercel build for reviewing the game in a normal browser before installing it on Reddit. It is a browser-only demo, not the production backend:
+This project includes a separate Vercel build for reviewing the game in a normal browser before installing it on Reddit. It is a standalone test build, not the production backend:
 
 - `vercel.json` uses `npm run build:vercel` and publishes `dist-vercel/`.
 - `vite.config.vercel.ts` builds the two HTML entry points without the Devvit server plugin.
-- The Vercel build uses a local demo API backed by browser `localStorage` and sample daily targets.
-- Reddit navigation and Journeys are replaced with preview-only shims; comment sharing and flair are disabled.
+- The Vercel build uses a standalone session adapter backed by browser `localStorage` and sample daily targets.
+- Reddit navigation and Journeys use standalone shims; comment sharing and flair are not available in this build. The interface does not display test-environment banners or reset controls.
 
 The normal `npm run build`, `npm run deploy`, and `npm run dev` commands continue to target Devvit. See [DEPLOYMENT.md](./DEPLOYMENT.md) for the browser-based Vercel and Reddit deployment steps.
+
+
+## Interface and accessibility
+
+The client uses Inter consistently across both screens, adapts from narrow mobile layouts through tablet widths to wide browser layouts, and includes visible keyboard focus, keyboard-operable sliders, labelled controls, larger touch targets, reduced-motion handling, high-contrast/forced-colour support, and system light/dark colour schemes. The palette is designed for WCAG AA text contrast. These are accessibility-oriented implementation measures; complete WCAG conformance still requires a browser accessibility audit and manual testing with screen readers and other assistive technologies.

@@ -4,12 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <title>Kolorly</title>
+    <meta name="theme-color" content="#171a1f" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Kolorly — Daily colour challenge</title>
     <link rel="stylesheet" href="/styles/app.css" />
   </head>
   <body class="inline-page">
-    <main id="app" class="inline-shell" aria-live="polite">
-      <div class="loading-state">Preparing today's palette…</div>
+    <main id="app" class="inline-shell">
+      <div class="loading-state" role="status">Preparing today's palette…</div>
     </main>
     <script type="module" src="/splash.ts"></script>
   </body>

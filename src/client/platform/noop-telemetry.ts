@@ -1,4 +1,4 @@
-/** Devvit Journeys are intentionally disabled in the standalone Vercel preview. */
+/** Devvit Journeys are not available in the standalone Vercel build. */
 export const telemetry = {
   appReady: async () => undefined,
   startJourney: async () => undefined,
