@@ -100,11 +100,11 @@ function currentRound(): PuzzleRound | null {
   return dailyPuzzle(session.date)[session.currentRound - 1] ?? null;
 }
 
-function gameResponse(): GameResponse {
+function gameResponse(includeNextRound = true): GameResponse {
   return {
     ok: true,
     ...session,
-    round: currentRound(),
+    round: includeNextRound ? currentRound() : null,
   };
 }
 
@@ -176,18 +176,21 @@ export const standaloneApi = {
     return initResponse();
   },
 
-  async startRound(): Promise<GameResponse> {
+  async startRound(advance = false): Promise<GameResponse> {
     if (session.status === "UNSTARTED") {
       session.status = "IN_PROGRESS";
       session.currentRound = 1;
       session.roundStartedAt = Date.now();
       saveSession();
     } else if (session.status === "IN_PROGRESS") {
-      const startedAt = session.roundStartedAt ?? Date.now();
-      if (Date.now() - startedAt >= ROUND_TIME_MS) {
+      if (session.roundStartedAt !== null && Date.now() - session.roundStartedAt >= ROUND_TIME_MS) {
         recordSubmission(session.currentRound, "#808080", true);
       }
-      if ((session.status as StandaloneSession["status"]) !== "COMPLETED" && session.roundStartedAt === null) {
+
+      if (session.status === "IN_PROGRESS" && session.roundStartedAt === null) {
+        if (session.rounds.length > 0 && !advance) {
+          return gameResponse(false);
+        }
         session.roundStartedAt = Date.now();
         saveSession();
       }

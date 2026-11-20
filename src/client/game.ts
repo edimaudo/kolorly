@@ -13,7 +13,6 @@ let currentGame: GameResponse | null = null;
 let currentInit: InitResponse | null = null;
 let currentGuess = "#808080";
 let frameHandle = 0;
-let revealTimeout = 0;
 let isSubmitting = false;
 let cvdMode = false;
 let hintVisible = false;
@@ -23,6 +22,13 @@ let toastTimeout = 0;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
+}
+
+function setSkipLink(targetId: string, label: string): void {
+  const link = document.querySelector<HTMLAnchorElement>("#skip-link");
+  if (!link) return;
+  link.href = `#${targetId}`;
+  link.textContent = label;
 }
 
 function showToast(message: string): void {
@@ -95,6 +101,7 @@ function hideHint(): void {
 
 function renderGame(state: GameResponse, init?: InitResponse): void {
   stopTimer();
+  root!.classList.remove("results-mode", "single-state");
   currentGame = state;
   lastResult = null;
   isSubmitting = false;
@@ -105,11 +112,26 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
 
   if (isStandaloneMode) document.body.classList.add("standalone-site");
   if (state.status === "COMPLETED") {
-    renderResult(state);
+    // Keep the fifth-round reveal visible after refresh; the player chooses when to open results.
+    const finalRound = state.rounds[state.rounds.length - 1];
+    if (finalRound?.round === 5) {
+      const { ok: _ok, round: _round, ...session } = state;
+      renderReveal(finalRound, session);
+    } else {
+      renderResult(state);
+    }
+    return;
+  }
+  if (state.status === "IN_PROGRESS" && state.roundStartedAt === null && state.rounds.length > 0) {
+    const previousResult = state.rounds[state.rounds.length - 1];
+    const { ok: _ok, round: _round, ...session } = state;
+    renderReveal(previousResult, session);
     return;
   }
   if (!state.round || state.roundStartedAt === null) {
-    root!.innerHTML = `<section class="error-state" role="alert"><h2>Your next swatch is ready.</h2><p>Kolorly is restoring the round timer.</p><button class="primary-button" id="resume-round" type="button">Continue</button></section>`;
+    root!.classList.add("single-state");
+    root!.innerHTML = `<section class="error-state" role="status"><h2>Your next swatch is ready.</h2><p>Kolorly is restoring the round timer.</p><button class="primary-button" id="resume-round" type="button">Continue</button></section>`;
+    setSkipLink("resume-round", "Skip to continue");
     root!.querySelector<HTMLButtonElement>("#resume-round")?.addEventListener("click", () => void beginRound());
     return;
   }
@@ -124,39 +146,36 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
   }).join("");
 
   root!.innerHTML = `
-    <div class="game-hud">
-      <div class="round-track" role="group" aria-label="Round ${state.currentRound} of 5">${dots}</div>
-      <div class="timer-wrap" role="timer" aria-label="Time remaining">
+    <header class="game-hud" aria-label="Game status">
+      <div class="round-track" role="progressbar" aria-label="Round progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="${state.currentRound}" aria-valuetext="Round ${state.currentRound} of 5">${dots}</div>
+      <div class="timer-wrap" role="timer" aria-label="Time remaining" aria-live="off">
         <span class="timer-count" id="timer-count">12.0</span>
         <div class="timer-track" aria-hidden="true"><div class="timer-fill" id="timer-fill"></div></div>
+        <span class="sr-only" id="timer-announcement" role="status" aria-live="polite" aria-atomic="true">12 seconds remaining</span>
       </div>
-      <button class="cvd-button" id="cvd-toggle" type="button" aria-pressed="false" aria-label="Show numeric hue, saturation and lightness values" title="Show numeric hue, saturation and lightness values">HSL values</button>
-    </div>
-    <div class="game-main">
-      <div class="game-primary">
-        <header class="round-heading">
-          <div><p class="round-kicker">${state.isArchive ? "ARCHIVE PRACTICE" : `DAILY SWATCH · ${escapeHtml(dateLabel(state.date))}`}</p><h1 id="round-heading" tabindex="-1">${escapeHtml(round.label)}</h1></div>
-          <span class="round-count">Round ${state.currentRound} of 5</span>
-        </header>
-        <section class="arena" aria-label="Colour comparison. Target colour above, your mix below.">
-          <div class="swatch-pane target" style="--swatch:${round.targetHex}" id="target-swatch"><span class="swatch-label">TARGET</span></div>
-          <div class="swatch-divider" aria-hidden="true"></div>
-          <div class="swatch-pane yours" style="--swatch:${currentGuess}" id="your-swatch"><span class="swatch-label">YOUR MIX</span></div>
-        </section>
+      <button class="cvd-button" id="cvd-toggle" type="button" aria-pressed="false" aria-label="Enable numeric HSL readouts for colour-vision support" title="Show numeric HSL readouts">CVD</button>
+    </header>
+    <header class="round-heading">
+      <div><p class="round-kicker">${state.isArchive ? "ARCHIVE PRACTICE" : `DAILY SWATCH · ${escapeHtml(dateLabel(state.date))}`}</p><h1 id="round-heading" tabindex="-1">${escapeHtml(round.label)}</h1></div>
+      <span class="round-count">Round ${state.currentRound} of 5</span>
+    </header>
+    <section class="arena" aria-label="Colour comparison. Target colour above, your mix below.">
+      <div class="swatch-pane target" style="--swatch:${round.targetHex}" id="target-swatch"><span class="swatch-label">TARGET</span></div>
+      <div class="swatch-divider" aria-hidden="true"></div>
+      <div class="swatch-pane yours" style="--swatch:${currentGuess}" id="your-swatch"><span class="swatch-label">YOUR MIX</span></div>
+    </section>
+    <section class="studio" aria-labelledby="studio-heading">
+      <div class="studio-top"><h2 class="studio-title" id="studio-heading" tabindex="-1">Studio mixer</h2>${hintVisible ? '<span class="hint-pill" id="hint-pill">Drag sliders to match</span>' : ""}</div>
+      <p class="sr-only" id="slider-instructions">Adjust each slider with the arrow keys or by dragging. Hue ranges from 0 to 360 degrees. Saturation and lightness range from 0 to 100 percent.</p>
+      <div class="slider-list">
+        <div class="slider-control"><label for="hue-slider">Hue</label><input id="hue-slider" type="range" min="0" max="360" step="1" value="180" aria-describedby="slider-instructions" /><output id="hue-value" for="hue-slider"></output></div>
+        <div class="slider-control"><label for="saturation-slider">Saturation</label><input id="saturation-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="saturation-value" for="saturation-slider"></output></div>
+        <div class="slider-control"><label for="lightness-slider">Lightness</label><input id="lightness-slider" type="range" min="0" max="100" step="1" value="50" aria-describedby="slider-instructions" /><output id="lightness-value" for="lightness-slider"></output></div>
       </div>
-      <div class="game-secondary">
-        <section class="studio" aria-labelledby="studio-heading">
-          <div class="studio-top"><h2 class="studio-title" id="studio-heading">Adjust your mix</h2>${hintVisible ? '<span class="hint-pill" id="hint-pill">Drag or use arrow keys</span>' : ""}</div>
-          <div class="slider-list">
-            <div class="slider-control"><label for="hue-slider">Hue</label><input id="hue-slider" type="range" min="0" max="360" step="1" value="180" aria-label="Hue" /><output id="hue-value" for="hue-slider"></output></div>
-            <div class="slider-control"><label for="saturation-slider">Saturation</label><input id="saturation-slider" type="range" min="0" max="100" step="1" value="50" aria-label="Saturation" /><output id="saturation-value" for="saturation-slider"></output></div>
-            <div class="slider-control"><label for="lightness-slider">Lightness</label><input id="lightness-slider" type="range" min="0" max="100" step="1" value="50" aria-label="Lightness" /><output id="lightness-value" for="lightness-slider"></output></div>
-          </div>
-        </section>
-        <footer class="action-footer"><button class="primary-button lock-button" id="lock-button" type="button">Lock in colour <span aria-hidden="true">→</span></button></footer>
-      </div>
-    </div>
+    </section>
+    <footer class="action-footer"><button class="primary-button lock-button" id="lock-button" type="button">Lock in colour <span aria-hidden="true">→</span></button></footer>
   `;
+  setSkipLink("studio-heading", "Skip to colour controls");
 
   root!.querySelector<HTMLElement>("#round-heading")?.focus();
   setSliderValues();
@@ -179,8 +198,8 @@ function renderGame(state: GameResponse, init?: InitResponse): void {
     cvdMode = !cvdMode;
     const button = root!.querySelector<HTMLButtonElement>("#cvd-toggle");
     button?.setAttribute("aria-pressed", String(cvdMode));
-    button?.setAttribute("aria-label", cvdMode ? "Hide numeric hue, saturation and lightness values" : "Show numeric hue, saturation and lightness values");
-    button!.textContent = cvdMode ? "Hide values" : "HSL values";
+    button?.setAttribute("aria-label", cvdMode ? "Disable numeric HSL readouts" : "Enable numeric HSL readouts for colour-vision support");
+    button!.textContent = cvdMode ? "CVD on" : "CVD";
     updateSliderReadouts();
     void recordInteraction("cvd_toggle");
   });
@@ -193,11 +212,20 @@ function runTimer(startedAt: number): void {
   stopTimer();
   const fill = root!.querySelector<HTMLElement>("#timer-fill");
   const count = root!.querySelector<HTMLElement>("#timer-count");
+  const announcement = root!.querySelector<HTMLElement>("#timer-announcement");
   if (!fill || !count) return;
+  let lastAnnouncedSecond = 12;
+  const announceAt = new Set([10, 5, 3, 1]);
   const tick = () => {
     const remaining = Math.max(0, ROUND_MS - (Date.now() - startedAt));
     const fraction = remaining / ROUND_MS;
-    count.textContent = `${(remaining / 1000).toFixed(1)}`;
+    const display = (remaining / 1000).toFixed(1);
+    if (count.textContent !== display) count.textContent = display;
+    const wholeSeconds = Math.ceil(remaining / 1000);
+    if (announcement && announceAt.has(wholeSeconds) && wholeSeconds !== lastAnnouncedSecond) {
+      announcement.textContent = `${wholeSeconds} seconds remaining`;
+      lastAnnouncedSecond = wholeSeconds;
+    }
     fill.style.transform = `scaleX(${fraction})`;
     fill.classList.toggle("warn", remaining <= 3000 && remaining > 1500);
     fill.classList.toggle("critical", remaining <= 1500);
@@ -238,7 +266,6 @@ async function submitGuess(timeout: boolean): Promise<void> {
 
 function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "round">): void {
   stopTimer();
-  window.clearTimeout(revealTimeout);
   const nextColor = result.guessHex;
   const dots = Array.from({ length: 5 }, (_, index) => `<span class="round-dot ${index < result.round ? "done" : ""}" aria-hidden="true"></span>`).join("");
   const crowdDetail = result.crowdCount > 0
@@ -246,34 +273,39 @@ function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "r
     : !isStandaloneMode ? "No community guesses yet." : "";
 
   root!.innerHTML = `
-    <div class="game-hud">
-      <div class="round-track" role="group" aria-label="Round ${result.round} of 5">${dots}</div>
-      <div class="timer-wrap" role="timer" aria-label="Round complete"><span class="timer-count">Done</span><div class="timer-track" aria-hidden="true"><div class="timer-fill" style="transform:scaleX(0)"></div></div></div>
-      <span class="round-count">Round ${result.round} of 5</span>
-    </div>
-    <div class="game-main reveal-layout">
-      <div class="game-primary">
-        <section class="arena revealed" aria-label="Colour reveal. Target colour above, your mix below.">
-          <div class="swatch-pane target" style="--swatch:${result.targetHex}"><span class="swatch-label">TARGET</span>${result.crowdCount > 0 ? `<span class="swatch-reticle" style="--crowd:${result.crowdAvgHex}" role="img" aria-label="Subreddit average colour ${result.crowdAvgHex}"></span>` : ""}</div>
-          <div class="swatch-divider" aria-hidden="true"></div>
-          <div class="swatch-pane yours" style="--swatch:${nextColor}"><div class="mix-meta"><strong>YOUR MIX</strong><span>${result.guessHex}</span></div></div>
-        </section>
+    <header class="game-hud" aria-label="Game status">
+      <div class="round-track" role="progressbar" aria-label="Round progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="${result.round}" aria-valuetext="Round ${result.round} of 5">${dots}</div>
+      <div class="timer-wrap timer-complete" aria-label="Round complete"><span class="timer-count">Done</span><div class="timer-track" aria-hidden="true"><div class="timer-fill" style="transform:scaleX(0)"></div></div></div>
+      <span class="round-count">${result.round} / 5</span>
+    </header>
+    <header class="round-heading">
+      <div><p class="round-kicker">SWATCH ${result.round} REVEALED</p><h1 id="reveal-heading" tabindex="-1">Your match</h1></div>
+    </header>
+    <section class="arena revealed" aria-label="Colour reveal. Target colour above, your mix below.">
+      <div class="swatch-pane target" style="--swatch:${result.targetHex}">
+        <span class="swatch-label">TARGET</span>
+        ${result.crowdCount > 0 ? `<span class="swatch-reticle" style="--crowd:${result.crowdAvgHex}" role="img" aria-label="Subreddit average colour ${result.crowdAvgHex}"></span>` : ""}
       </div>
-      <div class="game-secondary">
-        <section class="reveal-panel" aria-labelledby="reveal-heading">
-          <p class="round-kicker">SWATCH ${result.round} REVEALED</p>
-          <h1 id="reveal-heading" tabindex="-1">Your match</h1>
-          <div class="reveal-score" role="status" aria-live="polite"><span>${result.accuracyPct.toFixed(1)}%</span> match</div>
-          <p class="reveal-meta">+${result.roundScore.toLocaleString("en-CA")} pts · ΔE ${result.deltaE.toFixed(2)}${result.timedOut ? " · time expired" : ""}</p>
-          ${crowdDetail ? `<p class="reveal-meta">${crowdDetail}</p>` : ""}
-          ${result.triviaTitle ? `<p class="reveal-meta"><strong>${escapeHtml(result.triviaTitle)}</strong>${result.triviaNote ? ` · ${escapeHtml(result.triviaNote)}` : ""}</p>` : ""}
-          <button class="primary-button next-button" id="next-swatch" type="button">${session.status === "COMPLETED" ? "See your results" : "Next swatch"}<span aria-hidden="true">→</span></button>
-        </section>
+      <div class="swatch-divider" aria-hidden="true"></div>
+      <div class="swatch-pane yours" style="--swatch:${nextColor}">
+        <div class="mix-meta"><strong>YOUR MIX</strong><span>${result.guessHex}</span></div>
       </div>
-    </div>
+      <div class="match-badge" role="status" aria-live="polite" aria-atomic="true">
+        <strong>${result.accuracyPct.toFixed(1)}% match</strong><span>+${result.roundScore.toLocaleString("en-CA")} pts</span>
+      </div>
+    </section>
+    <section class="reveal-summary" aria-label="Round result details">
+      <div class="reveal-summary-main">
+        <p class="reveal-meta"><strong>Colour difference (ΔE 00):</strong> ${result.deltaE.toFixed(2)}${result.timedOut ? " · Time expired" : ""}</p>
+        ${crowdDetail ? `<p class="reveal-meta">${escapeHtml(crowdDetail)}</p>` : ""}
+        ${result.triviaTitle ? `<p class="reveal-meta"><strong>${escapeHtml(result.triviaTitle)}</strong>${result.triviaNote ? ` · ${escapeHtml(result.triviaNote)}` : ""}</p>` : ""}
+      </div>
+      <p class="reveal-prompt">Review your match, then continue when you're ready.</p>
+    </section>
+    <footer class="action-footer"><button class="primary-button next-button" id="next-swatch" type="button">${session.status === "COMPLETED" ? "See your results" : "Next swatch"}<span aria-hidden="true">→</span></button></footer>
   `;
+  setSkipLink("next-swatch", "Skip to continue");
   const advance = () => {
-    window.clearTimeout(revealTimeout);
     if (session.status === "COMPLETED") {
       const completeState: GameResponse = { ok: true, ...session, round: null };
       renderResult(completeState);
@@ -283,20 +315,19 @@ function renderReveal(result: RoundResult, session: Omit<GameResponse, "ok" | "r
   };
   root!.querySelector<HTMLElement>("#reveal-heading")?.focus();
   root!.querySelector<HTMLButtonElement>("#next-swatch")?.addEventListener("click", advance);
-  // Reduced-motion users advance manually so the result stays available to read.
-  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    revealTimeout = window.setTimeout(advance, 2500);
-  }
+  // Round reveal remains on screen until the player chooses to continue.
   if (session.status === "COMPLETED") void endJourney(session.totalScore);
 }
 
 async function beginRound(): Promise<void> {
   try {
-    const next = await api.startRound();
+    const next = await api.startRound(true);
     currentGame = next;
     renderGame(next);
   } catch (error) {
-    root!.innerHTML = `<section class="error-state"><h2>Couldn't load the next swatch.</h2><p>${escapeHtml(error instanceof Error ? error.message : "Please try again.")}</p><button class="primary-button" id="retry-round">Retry</button></section>`;
+    root!.classList.add("single-state");
+    root!.innerHTML = `<section class="error-state" role="alert"><h2>Couldn't load the next swatch.</h2><p>${escapeHtml(error instanceof Error ? error.message : "Please try again.")}</p><button class="primary-button" id="retry-round" type="button">Retry</button></section>`;
+    setSkipLink("retry-round", "Skip to retry");
     root!.querySelector<HTMLButtonElement>("#retry-round")?.addEventListener("click", () => void beginRound());
   }
 }
@@ -343,7 +374,8 @@ function resultDetail(state: GameResponse, round: RoundResult): string {
 
 function renderResult(state: GameResponse): void {
   stopTimer();
-  window.clearTimeout(revealTimeout);
+  root!.classList.add("results-mode");
+  root!.classList.remove("single-state");
   currentGame = state;
   const percentage = Number((state.totalScore / 50).toFixed(1));
   const title = state.isArchive ? "Practice complete" : "Today's palette, decoded.";
@@ -394,6 +426,7 @@ function renderResult(state: GameResponse): void {
       <section class="community-actions" aria-label="Result actions">${actions}</section>
     </section>
   `;
+  setSkipLink("result-title", "Skip to results");
 
   root!.querySelector<HTMLElement>("#result-title")?.focus();
   root!.querySelectorAll<HTMLButtonElement>(".review-tile").forEach((button) => {
@@ -462,7 +495,9 @@ async function boot(): Promise<void> {
     markAppReady();
     renderGame(state, currentInit);
   } catch (error) {
-    root!.innerHTML = `<section class="error-state" role="alert"><div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div><h2>Kolorly couldn't load.</h2><p>${escapeHtml(error instanceof Error ? error.message : "Please reload this post and try again.")}</p><button class="primary-button" id="retry-app">Try again</button></section>`;
+    root!.classList.add("single-state");
+    root!.innerHTML = `<section class="error-state" role="alert"><div class="brand-lockup"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>kolorly</span></div><h2>Kolorly couldn't load.</h2><p>${escapeHtml(error instanceof Error ? error.message : "Please reload this post and try again.")}</p><button class="primary-button" id="retry-app" type="button">Try again</button></section>`;
+    setSkipLink("retry-app", "Skip to retry");
     root!.querySelector<HTMLButtonElement>("#retry-app")?.addEventListener("click", () => void boot());
   }
 }

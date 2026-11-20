@@ -184,7 +184,8 @@ async function getDailyStats(date: string): Promise<DailyStats> {
 }
 
 function sessionToGameResponse(session: SessionState, puzzle: DailyPuzzle, notice?: string): GameResponse {
-  const round = session.status === "COMPLETED" ? null : puzzle.rounds[session.currentRound - 1] ?? null;
+  const revealPending = session.status === "IN_PROGRESS" && session.roundStartedAt === null && session.rounds.length > 0;
+  const round = session.status === "COMPLETED" || revealPending ? null : puzzle.rounds[session.currentRound - 1] ?? null;
   return {
     ok: true,
     date: session.date,
@@ -239,7 +240,7 @@ async function getInitPayload(game: GameContext): Promise<InitResponse> {
   };
 }
 
-async function startRound(game: GameContext): Promise<{ session: SessionState; notice?: string }> {
+async function startRound(game: GameContext, advance = false): Promise<{ session: SessionState; notice?: string }> {
   const { sessionKey, identity } = game;
   let notice: string | undefined;
 
@@ -250,6 +251,11 @@ async function startRound(game: GameContext): Promise<{ session: SessionState; n
     if (current.status === "COMPLETED") {
       await transaction.unwatch();
       return { session: current };
+    }
+
+    if (current.status === "IN_PROGRESS" && current.roundStartedAt === null && current.rounds.length > 0 && !advance) {
+      await transaction.unwatch();
+      return { session: current, notice };
     }
 
     if (current.status === "IN_PROGRESS" && current.roundStartedAt !== null && Date.now() - current.roundStartedAt >= ROUND_TIME_MS) {
@@ -485,7 +491,10 @@ app.get("/api/init", async (c) => {
 app.post("/api/round/start", async (c) => {
   try {
     const game = await getGameContext();
-    const started = await startRound(game);
+    const input = await c.req.json<{ advance?: boolean }>().catch(
+      (): { advance?: boolean } => ({}),
+    );
+    const started = await startRound(game, input.advance === true);
     return c.json(sessionToGameResponse(started.session, game.puzzle, started.notice));
   } catch (error) {
     const body: ApiError = { ok: false, error: error instanceof Error ? error.message : "Unable to start the round." };

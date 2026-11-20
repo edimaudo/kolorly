@@ -8,7 +8,7 @@ A five-round daily colour-mixing game for Reddit, built as a **Devvit Web** app.
 - **Daily deterministic puzzle:** SHA-256 seed + `mulberry32`, with four OKLCH-generated targets and a fifth cultural swatch. Friday uses curated theme palettes.
 - **Perceptual scoring:** sRGB → D50 Lab → CIEDE2000, then the PRD accuracy conversion and 1,000-point round scoring.
 - **Timed game loop:** 12-second countdown, initial HSL values of 180 / 50 / 50, responsive sliders, optional numeric CVD readouts, refresh recovery, and automatic timeout handling.
-- **Reveal:** target / guess split, score, ΔE, crowd average, and cultural note.
+- **Reveal:** target / guess split, score, ΔE, crowd average, and cultural note. The reveal stays on screen until the player selects **Next swatch**; there is no automatic 2.5-second advance. The next 12-second round timer starts only after that selection. Refreshing during an inter-round reveal restores the same reveal rather than starting the next timer. The fifth-round reveal also remains visible after refresh until the player selects **See your results**.
 - **Result card:** total score, percentile, streak, five-tile inspection, comment sharing, copy fallback, and earned flair equipper.
 - **Reddit services:** Redis-backed sessions, crowd aggregates, participant counts, leaderboard ranking, moderator daily-post creation, install trigger, and UTC scheduler.
 - **Journeys:** start, five progress milestones, interactions, end event, and receipt-status logging where the SDK exposes the corresponding client method.
@@ -111,7 +111,7 @@ kolorly/
 
 ## Verification status for this generated source
 
-The pure game-logic test suite passes with **6/6 tests**. The client TypeScript files pass a strict targeted type check using Devvit type stubs, TypeScript syntax checks pass, and the CSS and JSON configuration files parse successfully. A complete project type check and Vite/Devvit production build were not run because dependency installation did not complete in this environment. The project has not yet been uploaded to Reddit or tested inside Reddit's iOS, Android or desktop clients.
+The pure game-logic test suite passes with **6/6 tests**. Client and server application files pass targeted strict TypeScript checks using local declarations for the Devvit/Hono SDK modules, and TypeScript syntax, CSS parsing, and JSON configuration checks pass. A standalone-session flow test confirms that an inter-round reveal remains paused across reload, that **Next swatch** starts the following 12-second timer, and that the completed state is retained. Browser layout checks cover feed, active play, reveal and results at 320×568, 360×640, 375×667, 390×844, 640×720, 768×1024 and 1024×900, with no horizontal overflow. A complete project type check and Vite/Devvit production build were not run because dependency installation did not complete in this environment. The project has not yet been uploaded to Reddit or tested inside Reddit's iOS, Android or desktop clients.
 
 ## Vercel standalone test build
 
@@ -125,6 +125,10 @@ This project includes a separate Vercel build for reviewing the game in a normal
 The normal `npm run build`, `npm run deploy`, and `npm run dev` commands continue to target Devvit. See [DEPLOYMENT.md](./DEPLOYMENT.md) for the browser-based Vercel and Reddit deployment steps.
 
 
-## Interface and accessibility
+## Interface, responsive layout and accessibility
 
-The client uses Inter consistently across both screens, adapts from narrow mobile layouts through tablet widths to wide browser layouts, and includes visible keyboard focus, keyboard-operable sliders, labelled controls, larger touch targets, reduced-motion handling, high-contrast/forced-colour support, and system light/dark colour schemes. The palette is designed for WCAG AA text contrast. These are accessibility-oriented implementation measures; complete WCAG conformance still requires a browser accessibility audit and manual testing with screen readers and other assistive technologies.
+The expanded game keeps the PRD's original vertical composition at every width: a 48px progress/timer HUD, round heading, split Target/Your Mix arena, three-slider Studio mixer, and full-width action button. It does not switch to a two-column desktop game layout. The arena remains approximately 44% of the available viewport height, and each slider retains a 48px hit area with a 28px thumb. At short phone heights the arena and surrounding spacing compact while the controls retain their 48px hit areas; the page can scroll vertically if the available height is insufficient. The inter-round result is player-controlled: no next-round countdown runs during the reveal, and choosing **Next swatch** starts the next 12-second timer. The pending reveal is restored if the player refreshes before continuing.
+
+Inter is the single font family across both screens, with system fallbacks. Dark and light palettes use high-contrast text and control boundaries. The client includes a skip link, labelled sliders and buttons, keyboard-operable controls, a visible focus outline on range sliders, screen-reader announcements at meaningful timer thresholds, text alternatives for the crowd marker, reduced-motion handling, and high-contrast/forced-colour support. The tested text and control colour pairs meet the relevant WCAG AA contrast ratios. The layout has been browser-checked at 320×568, 360×640, 375×667, 390×844, 640×720, 768×1024 and 1024×900, with no horizontal overflow in the tested feed, gameplay, reveal or results views. In short landscape viewports, the same vertical game structure is retained and the page scrolls vertically rather than squeezing controls into an alternate layout.
+
+These implementation checks do not constitute a formal WCAG conformance certification. Complete verification still requires manual testing with VoiceOver, TalkBack and desktop screen readers inside the actual Reddit webview, as well as a full accessibility audit of the deployed app.

@@ -24,7 +24,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const devvitApi = {
   init: () => request<InitResponse>("/api/init"),
-  startRound: () => request<RoundStartResponse>("/api/round/start", { method: "POST" }),
+  startRound: (advance = false) => request<RoundStartResponse>("/api/round/start", { method: "POST", body: JSON.stringify({ advance }) }),
   submitRound: (round: number, guessHex: string) => request<SubmitRoundResponse>("/api/round/submit", {
     method: "POST",
     body: JSON.stringify({ round, guessHex }),
